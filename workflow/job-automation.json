@@ -434,29 +434,13 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": ""
-          },
-          "conditions": [
-            {
-              "id": "e984746c-5ad1-45a4-83dd-ea5f753d2432",
-              "leftValue": "={{ $json.score }}",
-              "rightValue": "={{ $('Backend Config').item.json.scoreThreshold }}",
-              "operator": {
-                "type": "number",
-                "operation": "gte"
-              }
-            }
-          ],
-          "combinator": "and"
-        }
+        "jsCode": "// Categorize ALL jobs into tiers — nothing is hidden\n// Score 80-100: STRONG → email sent\n// Score 60-79:  GOOD → email sent\n// Score 40-59:  PARTIAL → shown in digest (user decides)\n// Score 20-39:  STRETCH → shown in digest (learning opportunity)\n// Score <20:    SKIP (truly irrelevant)\n\nconst items = $input.all();\nconst categorized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  const score = job.score || 0;\n  \n  if (score >= 80) {\n    job.tier = 'strong';\n    job.tierLabel = 'STRONG MATCH';\n    job.sendEmail = true;\n  } else if (score >= 60) {\n    job.tier = 'good';\n    job.tierLabel = 'GOOD MATCH';\n    job.sendEmail = true;\n  } else if (score >= 40) {\n    job.tier = 'partial';\n    job.tierLabel = 'PARTIAL MATCH';\n    job.sendEmail = false;\n  } else if (score >= 20) {\n    job.tier = 'stretch';\n    job.tierLabel = 'STRETCH';\n    job.sendEmail = false;\n  } else {\n    continue; // Skip truly irrelevant (<20)\n  }\n  \n  categorized.push({ json: job });\n}\n\nif (categorized.length === 0) {\n  return [{ json: { empty: true, message: 'No relevant jobs found' } }];\n}\n\nreturn categorized;",
+        "mode": "runOnceForAllItems"
       },
       "id": "71ca40c9-0c97-4511-a5a7-4e6ec15813d4",
-      "name": "Filter Score >= 60",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+      "name": "Categorize Jobs by Tier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         2640,
         -300
@@ -464,7 +448,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst items = $input.all();\nconst today = new Date().toISOString().split('T')[0];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  job.discoveredAt = today;\n  job.emailed = false;\n  staticData.discoveredJobs.push(job);\n}\n\n// Cap at 500 (rolling window)\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\nreturn [{ json: { \n  stored: items.length, \n  totalInQueue: staticData.discoveredJobs.length,\n  today: today\n}}];\n",
+        "jsCode": "// Store jobs with sendEmail=true for the 9AM outreach trigger\n// But pass ALL jobs forward (for the digest email that shows all tiers)\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst items = $input.all();\nconst today = new Date().toISOString().split('T')[0];\nlet storedCount = 0;\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  // Only store for email outreach if sendEmail is true (score ≥60)\n  if (job.sendEmail && job.recruiterEmail) {\n    job.discoveredAt = today;\n    job.emailed = false;\n    staticData.discoveredJobs.push(job);\n    storedCount++;\n  }\n}\n\n// Cap at 500\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\n// Pass ALL items forward (for the digest that shows all tiers)\nreturn [{ json: { \n  stored: storedCount,\n  totalInQueue: staticData.discoveredJobs.length,\n  allJobs: items.map(i => i.json).filter(j => !j.empty),\n  today\n} }];",
         "mode": "runOnceForAllItems"
       },
       "id": "99b9012b-00e8-4a25-b3cd-8c9bae7f3fcb",
@@ -1186,14 +1170,14 @@
       "main": [
         [
           {
-            "node": "Filter Score >= 60",
+            "node": "Categorize Jobs by Tier",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Filter Score >= 60": {
+    "Categorize Jobs by Tier": {
       "main": [
         [
           {
@@ -1201,8 +1185,7 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Store Jobs for Outreach": {
