@@ -1,0 +1,609 @@
+{
+  "name": "AI Job Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "07fcc1c9-0937-4615-9a55-0eaa413bf03f",
+      "name": "Schedule: Job Discovery (8 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{groqKeys:['K1','K2','K3','K4'],geminiKeys:['G1','G2','G3','G4'],rapidApiKeys:['R1','R2','R3','R4'],groqDailyLimit:14400,geminiDailyLimit:1000,scoreThreshold:60,freshnessMaxDays:14,userEmailDailyLimit:50}}];"
+      },
+      "id": "99df73d9-e6f5-41cb-920e-85f2098d3e32",
+      "name": "Backend Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{name:'User',email:'user@gmail.com',skills:['Python','Node.js'],keywords:'backend',resumeUrl:'https://drive.google.com/file/d/ID/view',telegramChatId:'123'}}];"
+      },
+      "id": "07f4ccf5-a4e4-4937-adf9-c6bdf7256118",
+      "name": "User Profile",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=this.getWorkflowStaticData('global');const c=$('Backend Config').item.json;const d=new Date().toISOString().split('T')[0];if(!s.ai||s.ai.reset!==d){s.ai={groq:{i:0,c:[0,0,0,0]},gemini:{i:0,c:[0,0,0,0]},prov:'groq',reset:d};}let key='',prov=s.ai.prov,url='',model='';if(prov==='groq'){let f=false;for(let i=s.ai.groq.i;i<4;i++){if(s.ai.groq.c[i]<c.groqDailyLimit){key=c.groqKeys[i];s.ai.groq.i=i;f=true;break;}}if(!f){s.ai.prov='gemini';prov='gemini';}else{url='https://api.groq.com/openai/v1/chat/completions';model='llama-3.3-70b-versatile';}}if(prov==='gemini'){let f=false;for(let i=s.ai.gemini.i;i<4;i++){if(s.ai.gemini.c[i]<c.geminiDailyLimit){key=c.geminiKeys[i];s.ai.gemini.i=i;f=true;break;}}if(!f){prov='exhausted';}else{url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';model='gemini-2.0-flash';}}return [{json:{...items[0].json,aiKey:key,aiProv:prov,aiUrl:url,aiModel:model,aiDone:prov==='exhausted'}}];"
+      },
+      "id": "3de911f5-2451-443b-9a80-e7f8377453ce",
+      "name": "AI Rotation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('User Profile').item.json.resumeUrl }}"
+      },
+      "id": "43be78c5-970f-4fef-a188-fb8403355185",
+      "name": "Download Resume",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{json:{resumeParsed:true,resumeData:{skills:['Python','AWS']}}}];"
+      },
+      "id": "e060b004-02d5-4623-b1f5-ccb5fef00444",
+      "name": "Parse Resume",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://remotive.com/api/remote-jobs?limit=20"
+      },
+      "id": "9ed53bf0-70bf-4574-9865-c2b4d0943081",
+      "name": "Fetch Remotive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.arbeitnow.com/api/job-board-api"
+      },
+      "id": "518f9547-baf7-4b08-8621-dc5cd20252c8",
+      "name": "Fetch Arbeitnow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://himalayas.app/jobs/api?limit=20"
+      },
+      "id": "6a5d0c43-d0de-465b-8efc-5bd2ba077bc1",
+      "name": "Fetch Himalayas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://jobicy.com/api/v2/remote-jobs?count=20"
+      },
+      "id": "f8af5bcf-9fb7-4d0a-a243-a72ac6c85117",
+      "name": "Fetch Jobicy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.themuse.com/api/public/jobs?page=1"
+      },
+      "id": "aa267ebd-de39-427e-a451-3236eddb31d6",
+      "name": "Fetch The Muse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        760,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function extractEmail(text) {\n  if (!text) return { email: \"\", name: \"\" };\n  const emails = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])\n    .filter(e => !/(noreply|unsubscribe|notification|example\\.com|\\.(png|jpg|gif))/i.test(e));\n  if (!emails.length) return { email: \"\", name: \"\" };\n  const pri = [\"career\",\"hr\",\"hiring\",\"job\",\"recruit\",\"talent\",\"people\",\"apply\"];\n  const best = emails.find(e => pri.some(k => e.toLowerCase().includes(k))) || emails[0];\n  return { email: best, name: best.split(\"@\")[0].replace(/[._-]/g, \" \") };\n}\n\nconst jobs = (items[0].json.jobs||[]).map(job => {\n  const c = extractEmail((job.description)||'');\n  return {json:{source:'Remotive',jobTitle:job.title||'',company:job.company_name||'',location:job.candidate_required_location||'Remote',workMode:'Remote',description:((job.description)||'').substring(0,800),applyUrl:job.url,postedDate:job.publication_date,recruiterEmail:c.email,recruiterName:c.name,jobId:'remotive-'+job.id}};\n});\nreturn jobs.length?jobs:[{json:{empty:true}}];"
+      },
+      "id": "86518d9f-78f3-4a68-b212-83595adfc595",
+      "name": "Parse Remotive",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function extractEmail(text) {\n  if (!text) return { email: \"\", name: \"\" };\n  const emails = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])\n    .filter(e => !/(noreply|unsubscribe|notification|example\\.com|\\.(png|jpg|gif))/i.test(e));\n  if (!emails.length) return { email: \"\", name: \"\" };\n  const pri = [\"career\",\"hr\",\"hiring\",\"job\",\"recruit\",\"talent\",\"people\",\"apply\"];\n  const best = emails.find(e => pri.some(k => e.toLowerCase().includes(k))) || emails[0];\n  return { email: best, name: best.split(\"@\")[0].replace(/[._-]/g, \" \") };\n}\n\nconst jobs = ((items[0].json.data||[]).slice(0,20)).map(job => {\n  const c = extractEmail((job.description)||'');\n  return {json:{source:'Arbeitnow',jobTitle:job.title||'',company:job.company_name||'',location:job.location||'Remote',workMode:'Remote',description:((job.description)||'').substring(0,800),applyUrl:job.url,postedDate:job.created_at?new Date(job.created_at*1000).toISOString().split('T')[0]:'',recruiterEmail:c.email,recruiterName:c.name,jobId:'arbeitnow-'+job.slug}};\n});\nreturn jobs.length?jobs:[{json:{empty:true}}];"
+      },
+      "id": "8522c159-962f-4055-ab15-7f59ee5652cd",
+      "name": "Parse Arbeitnow",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function extractEmail(text) {\n  if (!text) return { email: \"\", name: \"\" };\n  const emails = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])\n    .filter(e => !/(noreply|unsubscribe|notification|example\\.com|\\.(png|jpg|gif))/i.test(e));\n  if (!emails.length) return { email: \"\", name: \"\" };\n  const pri = [\"career\",\"hr\",\"hiring\",\"job\",\"recruit\",\"talent\",\"people\",\"apply\"];\n  const best = emails.find(e => pri.some(k => e.toLowerCase().includes(k))) || emails[0];\n  return { email: best, name: best.split(\"@\")[0].replace(/[._-]/g, \" \") };\n}\n\nconst jobs = (items[0].json.jobs||[]).map(job => {\n  const c = extractEmail((job.description)||'');\n  return {json:{source:'Himalayas',jobTitle:job.title||'',company:job.companyName||'',location:job.location||'Remote',workMode:'Remote',description:((job.description)||'').substring(0,800),applyUrl:job.applicationLink||job.url||'',postedDate:job.pubDate||'',recruiterEmail:c.email,recruiterName:c.name,jobId:'himalayas-'+job.id}};\n});\nreturn jobs.length?jobs:[{json:{empty:true}}];"
+      },
+      "id": "c2fcde7f-4677-4e69-8e34-8a331419ee75",
+      "name": "Parse Himalayas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function extractEmail(text) {\n  if (!text) return { email: \"\", name: \"\" };\n  const emails = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])\n    .filter(e => !/(noreply|unsubscribe|notification|example\\.com|\\.(png|jpg|gif))/i.test(e));\n  if (!emails.length) return { email: \"\", name: \"\" };\n  const pri = [\"career\",\"hr\",\"hiring\",\"job\",\"recruit\",\"talent\",\"people\",\"apply\"];\n  const best = emails.find(e => pri.some(k => e.toLowerCase().includes(k))) || emails[0];\n  return { email: best, name: best.split(\"@\")[0].replace(/[._-]/g, \" \") };\n}\n\nconst jobs = (items[0].json.jobs||[]).map(job => {\n  const c = extractEmail((job.jobDescription)||'');\n  return {json:{source:'Jobicy',jobTitle:job.jobTitle||'',company:job.companyName||'',location:job.jobGeo||'Remote',workMode:'Remote',description:((job.jobDescription)||'').substring(0,800),applyUrl:job.url||'',postedDate:job.pubDate||'',recruiterEmail:c.email,recruiterName:c.name,jobId:'jobicy-'+job.id}};\n});\nreturn jobs.length?jobs:[{json:{empty:true}}];"
+      },
+      "id": "cef8491f-d132-4531-b205-3b87c0254d9f",
+      "name": "Parse Jobicy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function extractEmail(text) {\n  if (!text) return { email: \"\", name: \"\" };\n  const emails = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [])\n    .filter(e => !/(noreply|unsubscribe|notification|example\\.com|\\.(png|jpg|gif))/i.test(e));\n  if (!emails.length) return { email: \"\", name: \"\" };\n  const pri = [\"career\",\"hr\",\"hiring\",\"job\",\"recruit\",\"talent\",\"people\",\"apply\"];\n  const best = emails.find(e => pri.some(k => e.toLowerCase().includes(k))) || emails[0];\n  return { email: best, name: best.split(\"@\")[0].replace(/[._-]/g, \" \") };\n}\n\nconst jobs = ((items[0].json.results||[]).slice(0,20)).map(job => {\n  const c = extractEmail((job.contents)||'');\n  return {json:{source:'The Muse',jobTitle:job.name||'',company:(job.company||{}).name||''||'',location:(job.locations||[{}])[0].name||'Remote',workMode:'Remote',description:((job.contents)||'').substring(0,800),applyUrl:(job.refs||{}).landing_page||'',postedDate:job.publication_date||'',recruiterEmail:c.email,recruiterName:c.name,jobId:'muse-'+job.id}};\n});\nreturn jobs.length?jobs:[{json:{empty:true}}];"
+      },
+      "id": "6f919074-8bdc-4e2a-aad1-987f82518214",
+      "name": "Parse The Muse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return items.filter(i=>!i.json.empty&&i.json.jobTitle);"
+      },
+      "id": "45e67f0c-a674-4dca-b545-cb3d845b5ab2",
+      "name": "Merge Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=new Set();return items.filter(i=>{const k=(i.json.jobTitle+'|'+i.json.company).toLowerCase();if(s.has(k))return false;s.add(k);return true;});"
+      },
+      "id": "3a5e5f25-733c-4296-bb82-d800bb99a395",
+      "name": "Deduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const max=14;const now=new Date();return items.filter(i=>{if(!i.json.postedDate)return true;const d=Math.floor((now-new Date(i.json.postedDate))/(86400000));if(d>max)return false;i.json.daysOld=d;i.json.priority=d<=2?'HIGH':d<=7?'NORMAL':'LOW';return true;});"
+      },
+      "id": "ae6ea95d-cb45-4f8e-8a35-ecd47b1ba008",
+      "name": "Freshness Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Simplified scoring for Phase 1\nconst job=items[0].json;const user=$('User Profile').item.json;\nconst skills=(user.skills||[]).map(s=>s.toLowerCase());\nconst desc=(job.description||'').toLowerCase();\nlet score=40;\nskills.forEach(s=>{if(desc.includes(s))score+=12;});\nif(job.workMode==='Remote')score+=5;\nif(job.priority==='HIGH')score+=5;\nscore=Math.min(score,100);\nreturn [{json:{...job,score}}];"
+      },
+      "id": "bf90f982-f490-45fa-94ae-fe3b7c25050b",
+      "name": "AI Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.score }}",
+              "operation": "largerEqual",
+              "value2": 60
+            }
+          ]
+        }
+      },
+      "id": "5db21065-e1f5-40c9-bb35-5a8978662214",
+      "name": "Filter Score >= 60",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const jobs=items;const msg=`Found ${jobs.length} jobs scoring >= 60`;return [{json:{message:msg,chatId:$('User Profile').item.json.telegramChatId}}];"
+      },
+      "id": "8662dcbf-b7ad-4fa7-9b9b-6429de033644",
+      "name": "Prepare Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}"
+      },
+      "id": "d3c3dbd3-b25a-4e1c-b21d-ad1aaab2b329",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2400,
+        200
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CRED",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule: Job Discovery (8 AM)": {
+      "main": [
+        [
+          {
+            "node": "Backend Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend Config": {
+      "main": [
+        [
+          {
+            "node": "AI Rotation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "User Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Profile": {
+      "main": [
+        [
+          {
+            "node": "Download Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Resume": {
+      "main": [
+        [
+          {
+            "node": "Parse Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Rotation": {
+      "main": [
+        [
+          {
+            "node": "Fetch Remotive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Arbeitnow",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Himalayas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Jobicy",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch The Muse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Remotive": {
+      "main": [
+        [
+          {
+            "node": "Parse Remotive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Arbeitnow": {
+      "main": [
+        [
+          {
+            "node": "Parse Arbeitnow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Himalayas": {
+      "main": [
+        [
+          {
+            "node": "Parse Himalayas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Jobicy": {
+      "main": [
+        [
+          {
+            "node": "Parse Jobicy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch The Muse": {
+      "main": [
+        [
+          {
+            "node": "Parse The Muse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Remotive": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Arbeitnow": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Himalayas": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Jobicy": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse The Muse": {
+      "main": [
+        [
+          {
+            "node": "Merge Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Jobs": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Freshness Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freshness Filter": {
+      "main": [
+        [
+          {
+            "node": "AI Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Score": {
+      "main": [
+        [
+          {
+            "node": "Filter Score >= 60",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Score >= 60": {
+      "main": [
+        [
+          {
+            "node": "Prepare Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false
+}
