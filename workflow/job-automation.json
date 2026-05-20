@@ -12,7 +12,7 @@
           ]
         }
       },
-      "id": "9ba48864-4c85-4c82-aa9d-8edbde0b7045",
+      "id": "9efdcbec-3358-4272-8c0e-2ab26678edff",
       "name": "Trigger: 8AM Job Discovery",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -26,7 +26,7 @@
         "jsCode": "\nconst config = {\n  groqKeys: [\n    \"gsk_GROQ_KEY_1_PLACEHOLDER\",\n    \"gsk_GROQ_KEY_2_PLACEHOLDER\",\n    \"gsk_GROQ_KEY_3_PLACEHOLDER\",\n    \"gsk_GROQ_KEY_4_PLACEHOLDER\"\n  ],\n  geminiKeys: [\n    \"GEMINI_KEY_1_PLACEHOLDER\",\n    \"GEMINI_KEY_2_PLACEHOLDER\",\n    \"GEMINI_KEY_3_PLACEHOLDER\",\n    \"GEMINI_KEY_4_PLACEHOLDER\"\n  ],\n  rapidApiKeys: [\n    \"RAPIDAPI_KEY_1_PLACEHOLDER\",\n    \"RAPIDAPI_KEY_2_PLACEHOLDER\",\n    \"RAPIDAPI_KEY_3_PLACEHOLDER\",\n    \"RAPIDAPI_KEY_4_PLACEHOLDER\"\n  ],\n  findworkKeys: [\n    \"FINDWORK_KEY_1_PLACEHOLDER\",\n    \"FINDWORK_KEY_2_PLACEHOLDER\",\n    \"FINDWORK_KEY_3_PLACEHOLDER\",\n    \"FINDWORK_KEY_4_PLACEHOLDER\"\n  ],\n  groqDailyLimit: 14400,\n  geminiDailyLimit: 1000,\n  rapidApiMonthlyLimit: 500,\n  findworkMonthlyLimit: 50,\n  userEmailDailyLimit: 50,\n  scoreThreshold: 60,\n  freshnessMaxDays: 14\n};\nreturn [{ json: config }];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "49fc982b-e909-4cdc-a30e-bfd55ee68ee7",
+      "id": "13acae4a-e6f5-41aa-a757-0a342ce6fcf7",
       "name": "Backend Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -40,7 +40,7 @@
         "jsCode": "\nconst userProfile = {\n  name: \"YOUR_NAME\",\n  email: \"your.email@gmail.com\",\n  skills: [\"JavaScript\", \"TypeScript\", \"React\", \"Node.js\", \"Python\", \"AWS\"],\n  keywords: \"software engineer remote\",\n  resumeUrl: \"https://drive.google.com/file/d/YOUR_FILE_ID/view\",\n  telegramChatId: \"YOUR_TELEGRAM_CHAT_ID\",\n  linkedinUrl: \"https://linkedin.com/in/yourprofile\",\n  portfolioUrl: \"https://yourportfolio.com\",\n  currentRole: \"Software Engineer\",\n  experience: \"3 years\"\n};\nreturn [{ json: userProfile }];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "9c20dfac-17b9-4deb-8a3f-7b71a1f3206b",
+      "id": "09787dcb-1916-4a55-a7da-cf868774cd80",
       "name": "User Profile",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -54,7 +54,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst config = $input.first().json;\n\nconst today = new Date().toISOString().split('T')[0];\n\n// Initialize if new day or first run\nif (!staticData.rotationDate || staticData.rotationDate !== today) {\n  staticData.rotationDate = today;\n  staticData.groqIndex = 0;\n  staticData.geminiIndex = 0;\n  staticData.groqCounts = [0, 0, 0, 0];\n  staticData.geminiCounts = [0, 0, 0, 0];\n  staticData.rapidApiIndex = 0;\n  staticData.findworkIndex = 0;\n  staticData.rapidApiCounts = [0, 0, 0, 0];\n  staticData.findworkCounts = [0, 0, 0, 0];\n  staticData.aiCallsToday = 0;\n}\n\n// Forward-only AI rotation: groq1->2->3->4 then gemini1->2->3->4 then exhausted\nlet aiKey = null;\nlet aiProvider = 'exhausted';\nlet aiUrl = '';\nlet aiModel = '';\n\n// Try Groq keys first (forward only)\nfor (let i = staticData.groqIndex; i < 4; i++) {\n  if (staticData.groqCounts[i] < config.groqDailyLimit) {\n    aiKey = config.groqKeys[i];\n    aiProvider = 'groq';\n    aiUrl = 'https://api.groq.com/openai/v1/chat/completions';\n    aiModel = 'llama-3.1-70b-versatile';\n    staticData.groqIndex = i;\n    break;\n  }\n  staticData.groqIndex = i + 1;\n}\n\n// If all Groq exhausted, try Gemini (forward only)\nif (aiProvider === 'exhausted') {\n  for (let i = staticData.geminiIndex; i < 4; i++) {\n    if (staticData.geminiCounts[i] < config.geminiDailyLimit) {\n      aiKey = config.geminiKeys[i];\n      aiProvider = 'gemini';\n      aiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';\n      aiModel = 'gemini-1.5-flash';\n      staticData.geminiIndex = i;\n      break;\n    }\n    staticData.geminiIndex = i + 1;\n  }\n}\n\n// RapidAPI key rotation (forward only)\nlet rapidApiKey = null;\nfor (let i = staticData.rapidApiIndex; i < 4; i++) {\n  if (staticData.rapidApiCounts[i] < config.rapidApiMonthlyLimit) {\n    rapidApiKey = config.rapidApiKeys[i];\n    staticData.rapidApiIndex = i;\n    break;\n  }\n  staticData.rapidApiIndex = i + 1;\n}\n\n// Findwork key rotation (forward only)\nlet findworkKey = null;\nfor (let i = staticData.findworkIndex; i < 4; i++) {\n  if (staticData.findworkCounts[i] < config.findworkMonthlyLimit) {\n    findworkKey = config.findworkKeys[i];\n    staticData.findworkIndex = i;\n    break;\n  }\n  staticData.findworkIndex = i + 1;\n}\n\nreturn [{ json: {\n  aiKey, aiProvider, aiUrl, aiModel,\n  rapidApiKey, findworkKey,\n  groqIndex: staticData.groqIndex,\n  geminiIndex: staticData.geminiIndex,\n  rapidApiIndex: staticData.rapidApiIndex,\n  findworkIndex: staticData.findworkIndex,\n  ...config\n}}];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "901b6f76-7f5d-4631-82b0-03a73e94f817",
+      "id": "840d0c23-7364-481e-83ec-87dc43369000",
       "name": "AI Key Rotation Manager",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -74,7 +74,7 @@
           }
         }
       },
-      "id": "47d7acba-3775-436f-a131-3bcd9f68ee48",
+      "id": "d8094e4f-3dd5-4565-b5a8-7baf77759f10",
       "name": "Download Resume",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -88,7 +88,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst rotation = $('AI Key Rotation Manager').first().json;\nconst resumeText = $input.first().json.data || $input.first().json.body || \"Resume content unavailable\";\n\nlet parsed = { skills: [], experience: [], projects: [], achievements: [] };\n\nif (rotation.aiProvider === 'exhausted') {\n  // Fallback: return user profile skills\n  const profile = $('User Profile').first().json;\n  parsed.skills = profile.skills || [];\n  return [{ json: parsed }];\n}\n\nconst prompt = `Parse this resume and extract structured data. Return ONLY valid JSON with these fields:\n- skills: array of technical skills\n- experience: array of {role, company, duration, highlights}\n- projects: array of {name, description, technologies}\n- achievements: array of strings\n\nResume text:\n${resumeText}`;\n\nlet response;\ntry {\n  if (rotation.aiProvider === 'groq') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: rotation.aiUrl,\n      headers: {\n        'Authorization': `Bearer ${rotation.aiKey}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        model: rotation.aiModel,\n        messages: [{ role: 'user', content: prompt }],\n        temperature: 0.1,\n        max_tokens: 2000\n      }\n    });\n    const content = response.choices[0].message.content;\n    const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n  } else if (rotation.aiProvider === 'gemini') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${rotation.aiUrl}?key=${rotation.aiKey}`,\n      headers: { 'Content-Type': 'application/json' },\n      body: {\n        contents: [{ parts: [{ text: prompt }] }],\n        generationConfig: { temperature: 0.1, maxOutputTokens: 2000 }\n      }\n    });\n    const content = response.candidates[0].content.parts[0].text;\n    const jsonMatch = content.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n  }\n  // Increment AI counter\n  if (rotation.aiProvider === 'groq') {\n    staticData.groqCounts[staticData.groqIndex]++;\n  } else {\n    staticData.geminiCounts[staticData.geminiIndex]++;\n  }\n  staticData.aiCallsToday++;\n} catch (e) {\n  // Fallback to user profile\n  const profile = $('User Profile').first().json;\n  parsed.skills = profile.skills || [];\n}\n\nreturn [{ json: parsed }];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "f4d030eb-8724-458c-83f2-511a9f5cd144",
+      "id": "5d7fe07c-3cbe-4fc7-941b-1d45f2577c54",
       "name": "Parse Resume with AI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -104,7 +104,7 @@
           "timeout": 15000
         }
       },
-      "id": "0e799d31-5f21-409a-8ba2-bd7eab259fd5",
+      "id": "708fda1e-b915-4a69-9f35-22bad332c8cd",
       "name": "Fetch Remotive",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -120,7 +120,7 @@
           "timeout": 15000
         }
       },
-      "id": "31e6f749-3f66-460c-9621-f201d2662e4f",
+      "id": "b235f724-b0b8-45ce-a3e7-2589edcaf2de",
       "name": "Fetch Arbeitnow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -136,7 +136,7 @@
           "timeout": 15000
         }
       },
-      "id": "59b52d62-6cac-4ae8-8866-24775e90ebea",
+      "id": "e94b5044-a9d1-4495-9567-f4a48fe0e9c3",
       "name": "Fetch Himalayas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -152,7 +152,7 @@
           "timeout": 15000
         }
       },
-      "id": "620c09ef-ffc2-461e-ac54-f7a95042bc4c",
+      "id": "94a2ac9a-d104-4907-9fee-c26d0d80a27f",
       "name": "Fetch RemoteJobs.org",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -168,7 +168,7 @@
           "timeout": 15000
         }
       },
-      "id": "854dfd43-2365-4fe6-8edb-8671ea4b6ddf",
+      "id": "12547e6c-44f0-4cf9-a4ec-f0776517993f",
       "name": "Fetch Jobicy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -214,7 +214,7 @@
           "timeout": 15000
         }
       },
-      "id": "b0a49de9-5e73-49d0-a227-ad84b011946f",
+      "id": "ab00f465-ce75-4ae3-a207-1e1f2794178f",
       "name": "Fetch JSearch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -239,7 +239,7 @@
           "timeout": 15000
         }
       },
-      "id": "740ac720-a641-4276-94fb-a836061dad89",
+      "id": "7887af86-d200-443e-a0af-180cf9c6047c",
       "name": "Fetch Findwork",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -255,7 +255,7 @@
           "timeout": 15000
         }
       },
-      "id": "a2f3955c-3f7e-444a-81cd-9626afb95d1e",
+      "id": "97541629-54d9-4c72-bf67-d882bf0220d3",
       "name": "Fetch The Muse",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -269,7 +269,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.jobs || []).map(job => {\n    const emails = extractEmails(job.description || '');\n    return {\n      source: 'remotive',\n      jobTitle: job.title || '',\n      company: job.company_name || '',\n      location: job.candidate_required_location || 'Remote',\n      workMode: 'remote',\n      description: (job.description || '').substring(0, 1000),\n      applyUrl: job.url || '',\n      postedDate: job.publication_date || '',\n      jobId: `remotive_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'remotive' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'remotive', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "59d5711a-179b-4224-92ca-24680f20c311",
+      "id": "99090847-665a-4d9d-923f-ae62c6afaca1",
       "name": "Parse Remotive",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -283,7 +283,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.data || []).map(job => {\n    const emails = extractEmails(job.description || '');\n    return {\n      source: 'arbeitnow',\n      jobTitle: job.title || '',\n      company: job.company_name || '',\n      location: job.location || 'Remote',\n      workMode: job.remote ? 'remote' : 'hybrid',\n      description: (job.description || '').substring(0, 1000),\n      applyUrl: job.url || '',\n      postedDate: job.created_at || '',\n      jobId: `arbeitnow_${job.slug || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'arbeitnow' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'arbeitnow', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "b0ec614c-9bd9-4375-a597-85cbbb65b6d9",
+      "id": "a18bad72-8cdc-433e-b19f-0c0388d19c92",
       "name": "Parse Arbeitnow",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -297,7 +297,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.jobs || []).map(job => {\n    const emails = extractEmails(job.description || '');\n    return {\n      source: 'himalayas',\n      jobTitle: job.title || '',\n      company: job.companyName || job.company_name || '',\n      location: job.location || 'Remote',\n      workMode: 'remote',\n      description: (job.description || '').substring(0, 1000),\n      applyUrl: job.applicationUrl || job.url || '',\n      postedDate: job.pubDate || job.postedDate || '',\n      jobId: `himalayas_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'himalayas' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'himalayas', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "a5af217b-c67a-45a4-8af0-8fba375f5139",
+      "id": "6fcf1b57-7325-4d25-b767-2e1fd0b03ad1",
       "name": "Parse Himalayas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -311,7 +311,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobsArr = Array.isArray(data) ? data : (data.jobs || data.data || []);\n  const jobs = jobsArr.map(job => {\n    const emails = extractEmails(job.description || '');\n    return {\n      source: 'remotejobs',\n      jobTitle: job.title || '',\n      company: job.company || job.company_name || '',\n      location: job.location || 'Remote',\n      workMode: 'remote',\n      description: (job.description || '').substring(0, 1000),\n      applyUrl: job.url || job.apply_url || '',\n      postedDate: job.date || job.created_at || '',\n      jobId: `remotejobs_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'remotejobs' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'remotejobs', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "332cdc7c-dbf9-4823-bdd6-bd0e2e4c5421",
+      "id": "418074d3-937b-43b3-b721-3da9410dcfc7",
       "name": "Parse RemoteJobs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -325,7 +325,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.jobs || []).map(job => {\n    const emails = extractEmails(job.jobDescription || '');\n    return {\n      source: 'jobicy',\n      jobTitle: job.jobTitle || '',\n      company: job.companyName || '',\n      location: job.jobGeo || 'Remote',\n      workMode: 'remote',\n      description: (job.jobDescription || '').substring(0, 1000),\n      applyUrl: job.url || '',\n      postedDate: job.pubDate || '',\n      jobId: `jobicy_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'jobicy' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'jobicy', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "537fb199-90ed-4b1a-b36b-f66487a0efd3",
+      "id": "38185d73-3069-4670-a266-29e11b456670",
       "name": "Parse Jobicy",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -339,7 +339,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.data || []).map(job => {\n    const desc = job.job_description || '';\n    const emails = extractEmails(desc);\n    return {\n      source: 'jsearch',\n      jobTitle: job.job_title || '',\n      company: job.employer_name || '',\n      location: job.job_city ? `${job.job_city}, ${job.job_country}` : (job.job_country || 'Remote'),\n      workMode: job.job_is_remote ? 'remote' : 'onsite',\n      description: desc.substring(0, 1000),\n      applyUrl: job.job_apply_link || '',\n      postedDate: job.job_posted_at_datetime_utc || '',\n      jobId: `jsearch_${job.job_id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'jsearch' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'jsearch', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "d250a651-27a4-4cf1-b652-b293f40901cf",
+      "id": "21eadc60-b9d0-4db0-8cab-b37090ab9297",
       "name": "Parse JSearch",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -353,7 +353,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.results || []).map(job => {\n    const desc = job.text || job.description || '';\n    const emails = extractEmails(desc);\n    return {\n      source: 'findwork',\n      jobTitle: job.role || '',\n      company: job.company_name || '',\n      location: job.location || 'Remote',\n      workMode: job.remote ? 'remote' : 'onsite',\n      description: desc.substring(0, 1000),\n      applyUrl: job.url || '',\n      postedDate: job.date_posted || '',\n      jobId: `findwork_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'findwork' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'findwork', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "a652ad89-119e-40cc-a4f5-bcc0682b9d91",
+      "id": "b4be38c4-8015-4017-9658-1556ea400858",
       "name": "Parse Findwork",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -367,7 +367,7 @@
         "jsCode": "\n\nfunction extractEmails(text) {\n  if (!text) return { recruiterEmail: null, recruiterName: null };\n  const emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n  const allEmails = (text.match(emailRegex) || [])\n    .map(e => e.toLowerCase())\n    .filter(e => !e.match(/noreply|unsubscribe|notifications|mailer-daemon|no-reply/))\n    .filter(e => !e.match(/\\.(png|jpg|jpeg|gif|svg|webp)$/));\n  \n  if (allEmails.length === 0) return { recruiterEmail: null, recruiterName: null };\n  \n  // Priority: career/hr/hiring/talent/recruit keywords\n  const priority = allEmails.find(e => e.match(/career|hr|hiring|talent|recruit|jobs|apply|people/));\n  const chosen = priority || allEmails[0];\n  const namePart = chosen.split('@')[0].replace(/[._]/g, ' ');\n  return { recruiterEmail: chosen, recruiterName: namePart };\n}\n\ntry {\n  const data = $input.first().json;\n  const jobs = (data.results || []).map(job => {\n    const desc = job.contents || '';\n    const emails = extractEmails(desc);\n    const loc = job.locations && job.locations.length > 0 ? job.locations[0].name : 'Remote';\n    return {\n      source: 'themuse',\n      jobTitle: job.name || '',\n      company: job.company ? job.company.name : '',\n      location: loc,\n      workMode: loc.toLowerCase().includes('remote') ? 'remote' : 'onsite',\n      description: desc.substring(0, 1000),\n      applyUrl: job.refs ? job.refs.landing_page : '',\n      postedDate: job.publication_date || '',\n      jobId: `themuse_${job.id || ''}`,\n      recruiterEmail: emails.recruiterEmail,\n      recruiterName: emails.recruiterName\n    };\n  });\n  return jobs.length > 0 ? jobs.map(j => ({ json: j })) : [{ json: { empty: true, source: 'themuse' } }];\n} catch (e) {\n  return [{ json: { empty: true, source: 'themuse', error: e.message } }];\n}\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "2c65660f-e587-4d12-84c6-c67bfe34bceb",
+      "id": "a90cab95-77e0-4980-93d0-2d1ac28acd51",
       "name": "Parse The Muse",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -381,7 +381,7 @@
         "jsCode": "\nconst allItems = $input.all();\nconst jobs = allItems\n  .map(item => item.json)\n  .filter(j => !j.empty && j.jobTitle);\n  \nif (jobs.length === 0) {\n  return [{ json: { empty: true, message: \"No jobs found from any API\" } }];\n}\n\nreturn jobs.map(j => ({ json: j }));\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "fece57e5-c799-4302-ab4e-68cdc672761e",
+      "id": "4fabae6f-c5fa-4210-9d4c-961b230b0bfa",
       "name": "Merge All Jobs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -395,7 +395,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.seenJobs) staticData.seenJobs = {};\n\nconst items = $input.all();\nconst unique = [];\n\nfor (const item of items) {\n  if (item.json.empty) continue;\n  const key = (item.json.jobTitle + item.json.company).toLowerCase().replace(/\\s+/g, '');\n  if (!staticData.seenJobs[key]) {\n    staticData.seenJobs[key] = Date.now();\n    unique.push(item);\n  }\n}\n\n// Clean old entries (>7 days)\nconst weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;\nfor (const key of Object.keys(staticData.seenJobs)) {\n  if (staticData.seenJobs[key] < weekAgo) {\n    delete staticData.seenJobs[key];\n  }\n}\n\nif (unique.length === 0) {\n  return [{ json: { empty: true, message: \"All jobs are duplicates\" } }];\n}\nreturn unique;\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "8665ca00-ccb7-4b7c-8373-54a7c553d2ab",
+      "id": "07615a45-4ee8-483a-88d4-94c2b48fe420",
       "name": "Deduplicate Jobs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -409,7 +409,7 @@
         "jsCode": "\nconst config = $('Backend Config').first().json;\nconst maxDays = config.freshnessMaxDays || 14;\nconst items = $input.all();\nconst filtered = [];\n\nfor (const item of items) {\n  if (item.json.empty) continue;\n  \n  const postedDate = item.json.postedDate;\n  if (!postedDate) {\n    // No date available - keep it with NORMAL priority\n    item.json.priority = 'NORMAL';\n    filtered.push(item);\n    continue;\n  }\n  \n  const posted = new Date(postedDate);\n  const now = new Date();\n  const diffDays = Math.floor((now - posted) / (1000 * 60 * 60 * 24));\n  \n  if (diffDays > maxDays) continue; // Skip old jobs\n  \n  // Set priority\n  if (diffDays <= 2) item.json.priority = 'HIGH';\n  else if (diffDays <= 7) item.json.priority = 'NORMAL';\n  else item.json.priority = 'LOW';\n  \n  item.json.ageDays = diffDays;\n  filtered.push(item);\n}\n\nif (filtered.length === 0) {\n  return [{ json: { empty: true, message: \"All jobs too old\" } }];\n}\nreturn filtered;\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "bd8d6dc6-b473-4928-9d6b-2d3eb5363b8c",
+      "id": "d1af86af-8d02-4ea6-920b-dde6288bcb5d",
       "name": "Freshness Filter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -423,7 +423,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst rotation = $('AI Key Rotation Manager').first().json;\nconst userProfile = $('User Profile').first().json;\nconst resume = $('Parse Resume with AI').first().json;\nconst job = $input.item.json;\n\nif (job.empty) return [{ json: { ...job, score: 0, matchReason: 'empty' } }];\nif (rotation.aiProvider === 'exhausted') {\n  // Fallback: simple keyword matching\n  const skills = (userProfile.skills || []).map(s => s.toLowerCase());\n  const desc = (job.description || '').toLowerCase();\n  let score = 0;\n  skills.forEach(s => { if (desc.includes(s)) score += 15; });\n  score = Math.min(score, 100);\n  return [{ json: { ...job, score, matchReason: 'keyword-fallback' } }];\n}\n\nconst prompt = `Score this job match 0-100 for the candidate. Return ONLY JSON: {\"score\": number, \"matchReason\": \"brief reason\"}\n\nJob: ${job.jobTitle} at ${job.company}\nDescription: ${(job.description || '').substring(0, 500)}\nLocation: ${job.location} | Mode: ${job.workMode}\n\nCandidate Skills: ${userProfile.skills.join(', ')}\nExperience: ${userProfile.experience}\nResume Skills: ${(resume.skills || []).join(', ')}\nResume Projects: ${(resume.projects || []).map(p => p.name || p).join(', ')}\n\nScoring: +20 skill overlap, +15 project match, +10 location match, +10 seniority match, +10 fresh posting`;\n\ntry {\n  let content = '';\n  if (rotation.aiProvider === 'groq') {\n    const resp = await this.helpers.httpRequest({\n      method: 'POST',\n      url: rotation.aiUrl,\n      headers: { 'Authorization': `Bearer ${rotation.aiKey}`, 'Content-Type': 'application/json' },\n      body: { model: rotation.aiModel, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 200 }\n    });\n    content = resp.choices[0].message.content;\n    staticData.groqCounts[staticData.groqIndex]++;\n  } else {\n    const resp = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${rotation.aiUrl}?key=${rotation.aiKey}`,\n      headers: { 'Content-Type': 'application/json' },\n      body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 200 } }\n    });\n    content = resp.candidates[0].content.parts[0].text;\n    staticData.geminiCounts[staticData.geminiIndex]++;\n  }\n  staticData.aiCallsToday++;\n  \n  const jsonMatch = content.match(/\\{[\\s\\S]*?\\}/);\n  if (jsonMatch) {\n    const result = JSON.parse(jsonMatch[0]);\n    return [{ json: { ...job, score: result.score || 0, matchReason: result.matchReason || '' } }];\n  }\n  return [{ json: { ...job, score: 50, matchReason: 'parse-error' } }];\n} catch (e) {\n  return [{ json: { ...job, score: 50, matchReason: `error: ${e.message}` } }];\n}\n",
         "mode": "runOnceForEachItem"
       },
-      "id": "9ba60f29-f3aa-4958-bedd-ecba7571f925",
+      "id": "c1c08cab-00a9-430f-875b-c9fce1239cd5",
       "name": "AI Score Jobs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -441,7 +441,7 @@
           },
           "conditions": [
             {
-              "id": "7c518236-e352-45b5-a03c-26385fe31af7",
+              "id": "2a78d586-0108-4df5-b504-1883d243f5e6",
               "leftValue": "={{ $json.score }}",
               "rightValue": "={{ $('Backend Config').item.json.scoreThreshold }}",
               "operator": {
@@ -453,7 +453,7 @@
           "combinator": "and"
         }
       },
-      "id": "4e07b86e-7d92-44ab-a30a-ac0315d99ebf",
+      "id": "28077dd1-40b5-4253-b4a3-417e01488775",
       "name": "Filter Score >= 60",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -467,7 +467,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst items = $input.all();\nconst today = new Date().toISOString().split('T')[0];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  job.discoveredAt = today;\n  job.emailed = false;\n  staticData.discoveredJobs.push(job);\n}\n\n// Cap at 500 (rolling window)\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\nreturn [{ json: { \n  stored: items.length, \n  totalInQueue: staticData.discoveredJobs.length,\n  today: today\n}}];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "673d3f4f-f175-4e48-9f74-5e96e5fe1bd0",
+      "id": "402db48b-ac60-465e-ab0c-1a844e79274e",
       "name": "Store Jobs for Outreach",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -478,11 +478,11 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst stored = $input.first().json;\nconst allItems = $('AI Score Jobs').all();\nconst highPriority = allItems.filter(i => i.json.priority === 'HIGH' && i.json.score >= 60);\nconst totalScored = allItems.filter(i => !i.json.empty).length;\nconst passed = allItems.filter(i => i.json.score >= 60).length;\n\nlet msg = `\ud83d\udd0d *Job Discovery Report*\\n\\n`;\nmsg += `\ud83d\udcca Found: ${totalScored} jobs | Passed: ${passed} (score \u226560)\\n`;\nmsg += `\ud83d\udcbe Stored for outreach: ${stored.stored} | Queue: ${stored.totalInQueue}\\n\\n`;\n\nif (highPriority.length > 0) {\n  msg += `\u26a1 *HIGH PRIORITY (posted <2 days):*\\n`;\n  highPriority.slice(0, 5).forEach((item, i) => {\n    const j = item.json;\n    msg += `${i+1}. ${j.jobTitle} @ ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) msg += `   \u2192 ${j.applyUrl}\\n`;\n  });\n  if (highPriority.length > 5) msg += `   ...and ${highPriority.length - 5} more\\n`;\n}\n\nmsg += `\\n\u2705 Outreach will begin at 9:00 AM UTC`;\nreturn [{ json: { message: msg } }];\n",
+        "jsCode": "\nconst stored = $input.first().json;\nconst allItems = $('AI Score Jobs').all();\nconst highPriority = allItems.filter(i => i.json.priority === 'HIGH' && i.json.score >= 60);\nconst withEmail = allItems.filter(i => i.json.recruiterEmail && i.json.score >= 60);\nconst withPortal = allItems.filter(i => i.json.applyUrl && i.json.score >= 60);\nconst totalScored = allItems.filter(i => !i.json.empty).length;\nconst passed = allItems.filter(i => i.json.score >= 60).length;\nconst user = $('User Profile').first().json;\n\nlet body = `Hi ${user.name},\\n\\nYour daily job matches are ready!\\n\\n`;\nbody += `Found: ${totalScored} jobs | Passed: ${passed} (score >= 60)\\n`;\nbody += `Stored for outreach: ${stored.stored} | Queue: ${stored.totalInQueue}\\n\\n`;\n\nif (highPriority.length > 0) {\n  body += `HIGH PRIORITY (posted <2 days - apply NOW):\\n\\n`;\n  highPriority.slice(0, 10).forEach((item, i) => {\n    const j = item.json;\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (Score: ${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Apply: ${j.applyUrl}\\n`;\n    if (j.recruiterEmail) body += `   Email: ${j.recruiterEmail} (auto-applying)\\n`;\n    body += `\\n`;\n  });\n}\n\nbody += `\\nSummary:\\n`;\nbody += `- ${withEmail.length} jobs will get application emails at 9 AM\\n`;\nbody += `- ${withPortal.length} jobs have portal links (apply for double coverage)\\n`;\nbody += `- ${highPriority.length} are fresh (<48 hours old)\\n`;\nbody += `\\n---\\nAI Jobs Assistant`;\n\nconst subject = `Daily Job Matches: ${passed} Jobs (Score >= 60)${highPriority.length > 0 ? ' - ' + highPriority.length + ' HIGH PRIORITY' : ''}`;\n\nreturn [{ json: { emailBody: body, emailSubject: subject, sendTo: user.email } }];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "65f7598a-b170-4485-9ec5-6a57c825d098",
-      "name": "Prepare Telegram Summary",
+      "id": "dd549e1b-388e-47dd-8607-a1deaa3f71f0",
+      "name": "Prepare Job Digest Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -492,24 +492,23 @@
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "={{$json.message}}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$json.sendTo}}",
+        "subject": "={{$json.emailSubject}}",
+        "message": "={{$json.emailBody}}",
+        "options": {}
       },
-      "id": "b90c1352-cd5f-4ee1-875b-bc93952d3778",
-      "name": "Send Telegram Digest",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "id": "987ab50f-66d9-414e-a116-c30c171432de",
+      "name": "Send Job Digest Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         3300,
         -300
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CRED",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
@@ -524,7 +523,7 @@
           ]
         }
       },
-      "id": "4e95c3fe-2373-4b2f-bd24-928d5411af84",
+      "id": "7b603c93-1dcc-4f3e-8642-2b480008b7e9",
       "name": "Trigger: 9AM Email Outreach",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -538,7 +537,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\n\nif (!staticData.discoveredJobs || staticData.discoveredJobs.length === 0) {\n  return [{ json: { empty: true, message: \"No jobs in queue\" } }];\n}\n\n// Filter: has recruiterEmail AND not already emailed today\nconst available = staticData.discoveredJobs.filter(job => \n  job.recruiterEmail && !job.emailed\n);\n\nif (available.length === 0) {\n  return [{ json: { empty: true, message: \"No jobs with email available\" } }];\n}\n\nreturn available.map(j => ({ json: j }));\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "4e5ade26-9880-49a7-a241-a5fe0f7d319a",
+      "id": "92275acb-9223-46f8-95a6-ed11aab000b6",
       "name": "Get Jobs for Outreach",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -552,7 +551,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst config = $('Backend Config').first().json;\nconst today = new Date().toISOString().split('T')[0];\n\nif (!staticData.emailsSent) staticData.emailsSent = {};\nif (!staticData.emailsSent[today]) {\n  staticData.emailsSent[today] = { count: 0, jobIds: [] };\n}\n\nconst sent = staticData.emailsSent[today].count;\nconst limit = config.userEmailDailyLimit || 50;\nconst remaining = limit - sent;\n\nif (remaining <= 0) {\n  return [{ json: { limitReached: true, sent, limit } }];\n}\n\n// Slice jobs to fit remaining limit\nconst items = $input.all().filter(i => !i.json.empty);\nconst toSend = items.slice(0, remaining);\n\nreturn toSend.map(item => ({\n  json: { ...item.json, limitReached: false, emailsSentToday: sent, dailyLimit: limit }\n}));\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "182d8ff9-d6bd-4812-9f04-f5d0519dc003",
+      "id": "8d29207a-c689-4189-bc29-053da3214653",
       "name": "Check Email Limit",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -570,7 +569,7 @@
           },
           "conditions": [
             {
-              "id": "1ff5ca69-3698-4a01-8d84-738bcf2a861e",
+              "id": "79cfe751-93bc-4ee0-87ae-f7389fc0b02b",
               "leftValue": "={{ $json.limitReached }}",
               "rightValue": true,
               "operator": {
@@ -582,7 +581,7 @@
           "combinator": "and"
         }
       },
-      "id": "bc905cb9-2c4e-4c35-9c5c-a249ac594d58",
+      "id": "b839fa7e-533b-4f79-ad0d-8d3d2325cf83",
       "name": "Limit Reached?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -596,7 +595,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst rotation = $('AI Key Rotation Manager').first().json;\nconst userProfile = $('User Profile').first().json;\nconst resume = $('Parse Resume with AI').first().json;\nconst job = $input.item.json;\n\nif (job.empty || !job.recruiterEmail) {\n  return [{ json: { skip: true } }];\n}\n\n// Generate email with AI or fallback\nlet emailSubject = `Application for ${job.jobTitle} at ${job.company}`;\nlet emailBody = '';\n\nif (rotation.aiProvider !== 'exhausted') {\n  const prompt = `Write a DIRECT job application email (150-200 words). This is NOT a follow-up.\n\nJob: ${job.jobTitle} at ${job.company}\nDescription: ${(job.description || '').substring(0, 400)}\n\nCandidate: ${userProfile.name}\nSkills: ${userProfile.skills.join(', ')}\nExperience: ${userProfile.experience}\nResume highlights: ${(resume.projects || []).slice(0, 2).map(p => p.name || p).join(', ')}\nLinkedIn: ${userProfile.linkedinUrl}\nPortfolio: ${userProfile.portfolioUrl}\n\nInstructions:\n- Start with \"Hi [Hiring Team/Recruiter Name],\"\n- First paragraph: State you're applying for the role, mention one specific JD requirement you match\n- Second paragraph: Reference a project from resume that proves competence\n- Close: Express enthusiasm, mention resume is attached\n- Sign off with name + LinkedIn + Portfolio\n- Keep it 150-200 words, professional but warm\n- Do NOT say \"I saw your posting on...\" or \"I hope this email finds you...\"\n\nReturn format:\nSubject: [subject line]\n\n[email body]`;\n\n  try {\n    let content = '';\n    if (rotation.aiProvider === 'groq') {\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: rotation.aiUrl,\n        headers: { 'Authorization': `Bearer ${rotation.aiKey}`, 'Content-Type': 'application/json' },\n        body: { model: rotation.aiModel, messages: [{ role: 'user', content: prompt }], temperature: 0.7, max_tokens: 500 }\n      });\n      content = resp.choices[0].message.content;\n      staticData.groqCounts[staticData.groqIndex]++;\n    } else {\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: `${rotation.aiUrl}?key=${rotation.aiKey}`,\n        headers: { 'Content-Type': 'application/json' },\n        body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 500 } }\n      });\n      content = resp.candidates[0].content.parts[0].text;\n      staticData.geminiCounts[staticData.geminiIndex]++;\n    }\n    staticData.aiCallsToday++;\n    \n    // Parse subject and body\n    const subjectMatch = content.match(/Subject:\\s*(.+)/i);\n    if (subjectMatch) {\n      emailSubject = subjectMatch[1].trim();\n      emailBody = content.replace(/Subject:.+\\n?\\n?/i, '').trim();\n    } else {\n      emailBody = content.trim();\n    }\n  } catch (e) {\n    // Fallback template\n    emailBody = `Hi Hiring Team,\\n\\nI am writing to apply for the ${job.jobTitle} position at ${job.company}. With ${userProfile.experience} of experience in ${userProfile.skills.slice(0, 3).join(', ')}, I believe I would be a strong fit for this role.\\n\\nI have attached my resume for your review. I would welcome the opportunity to discuss how my background aligns with your needs.\\n\\nBest regards,\\n${userProfile.name}\\n${userProfile.linkedinUrl}\\n${userProfile.portfolioUrl}`;\n  }\n} else {\n  // AI exhausted - simple template\n  emailBody = `Hi Hiring Team,\\n\\nI am writing to apply for the ${job.jobTitle} position at ${job.company}. With ${userProfile.experience} of experience in ${userProfile.skills.slice(0, 3).join(', ')}, I believe I would be a strong fit for this role.\\n\\nI have attached my resume for your review. I would welcome the opportunity to discuss how my background aligns with your needs.\\n\\nBest regards,\\n${userProfile.name}\\n${userProfile.linkedinUrl}\\n${userProfile.portfolioUrl}`;\n}\n\nreturn [{ json: { \n  ...job, \n  emailSubject, \n  emailBody, \n  sendTo: job.recruiterEmail,\n  ccEmail: userProfile.email\n}}];\n",
         "mode": "runOnceForEachItem"
       },
-      "id": "1c2c6d15-2998-491e-9dfa-bec08f6d042c",
+      "id": "112a56ca-493d-44dc-bc0f-d60d78149c6f",
       "name": "AI: Generate Application Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -614,7 +613,7 @@
           "ccList": "={{$json.ccEmail}}"
         }
       },
-      "id": "28310d31-6956-4cf6-ba69-ffd64913bd1b",
+      "id": "0964a7c5-49fe-49d2-98e6-a6b2a5edbc64",
       "name": "Send Application Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
@@ -634,7 +633,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\n\nif (!staticData.emailsSent) staticData.emailsSent = {};\nif (!staticData.emailsSent[today]) {\n  staticData.emailsSent[today] = { count: 0, jobIds: [] };\n}\n\nconst job = $input.item.json;\nstaticData.emailsSent[today].count++;\nstaticData.emailsSent[today].jobIds.push(job.jobId);\n\n// Mark job as emailed in discoveredJobs\nif (staticData.discoveredJobs) {\n  const idx = staticData.discoveredJobs.findIndex(j => j.jobId === job.jobId);\n  if (idx >= 0) {\n    staticData.discoveredJobs[idx].emailed = true;\n    staticData.discoveredJobs[idx].emailedAt = new Date().toISOString();\n  }\n}\n\nreturn [{ json: { \n  ...job, \n  emailSent: true, \n  emailCount: staticData.emailsSent[today].count \n}}];\n",
         "mode": "runOnceForEachItem"
       },
-      "id": "8f507fcb-85e1-4aca-83bf-c10432c99a99",
+      "id": "eb32e5fa-b9fc-4be5-b55d-34058fb1b4b0",
       "name": "Track Email Sent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -645,10 +644,10 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\nconst todayStats = staticData.emailsSent ? staticData.emailsSent[today] : { count: 0 };\nconst config = $('Backend Config').first().json;\n\nconst items = $input.all();\nconst sentCount = items.length;\n\nlet msg = `\ud83d\udce7 *Email Outreach Complete*\\n\\n`;\nmsg += `\u2705 Sent: ${sentCount} application emails\\n`;\nmsg += `\ud83d\udcca Total today: ${todayStats.count}/${config.userEmailDailyLimit}\\n\\n`;\n\nitems.slice(0, 5).forEach((item, i) => {\n  const j = item.json;\n  msg += `${i+1}. ${j.jobTitle} @ ${j.company}\\n`;\n  msg += `   \u2192 ${j.recruiterEmail}\\n`;\n});\n\nif (items.length > 5) msg += `   ...and ${items.length - 5} more\\n`;\nmsg += `\\n\ud83d\udca1 Each email is a direct application with resume context.`;\n\nreturn [{ json: { message: msg } }];\n",
+        "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\nconst todayStats = staticData.emailsSent ? staticData.emailsSent[today] : { count: 0 };\nconst config = $('Backend Config').first().json;\nconst user = $('User Profile').first().json;\nconst items = $input.all();\nconst sentCount = items.filter(i => i.json.emailSent).length;\n\nlet body = `Hi ${user.name},\\n\\nOutreach complete!\\n\\n`;\nbody += `Sent: ${sentCount} application emails\\n`;\nbody += `Total today: ${todayStats.count}/${config.userEmailDailyLimit}\\n\\n`;\nbody += `Applications sent to:\\n`;\nitems.filter(i => i.json.emailSent).slice(0, 10).forEach((item, i) => {\n  body += `${i+1}. ${item.json.jobTitle} at ${item.json.company} -> ${item.json.recruiterEmail}\\n`;\n});\nif (sentCount > 10) body += `...and ${sentCount - 10} more\\n`;\nbody += `\\nEach email is a direct application. You are CC'd on all.`;\nbody += `\\n\\n---\\nAI Jobs Assistant`;\n\nreturn [{ json: { emailBody: body, emailSubject: `Outreach Complete: ${sentCount} Applications Sent`, sendTo: user.email } }];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "9d9c432e-0a0a-418c-a89f-a6f052171511",
+      "id": "2bba590a-0d48-4b9b-8402-b408d015e338",
       "name": "Outreach Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -659,47 +658,45 @@
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "={{$json.message}}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$json.sendTo}}",
+        "subject": "={{$json.emailSubject}}",
+        "message": "={{$json.emailBody}}",
+        "options": {}
       },
-      "id": "e41bca90-6cb7-49d2-b960-3772b8cc97c1",
-      "name": "Send Outreach Telegram",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "id": "a369ef17-1013-4c50-8dae-ce90d3528c1d",
+      "name": "Send Outreach Summary Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         1980,
         800
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CRED",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "=\u26a0\ufe0f *Daily Email Limit Reached*\n\nSent: {{$json.sent}}/{{$json.limit}} emails today.\nOutreach paused until tomorrow.\n\n\ud83d\udca1 Remaining jobs saved in queue for tomorrow.",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$('User Profile').item.json.email}}",
+        "subject": "Daily Email Limit Reached",
+        "message": "=Hi {{$('User Profile').item.json.name}},\n\nDaily limit reached ({{$json.sent}}/{{$json.limit}}).\nOutreach paused until tomorrow.\nRemaining jobs saved for tomorrow.\n\n---\nAI Jobs Assistant",
+        "options": {}
       },
-      "id": "6892d536-699f-42f3-9d83-305ab994a3e2",
-      "name": "Limit Notification",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "id": "6956be13-e33f-474f-8ec7-db45d22cf330",
+      "name": "Limit Notification Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         1100,
         400
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CRED",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
@@ -714,7 +711,7 @@
           ]
         }
       },
-      "id": "58a24339-f1c6-418f-855d-295670c29499",
+      "id": "9e7a8bdb-6230-4d55-8ac6-ec64475a0bee",
       "name": "Trigger: Midnight Reset",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -728,7 +725,7 @@
         "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\n\n// Reset AI counters\nstaticData.rotationDate = today;\nstaticData.groqIndex = 0;\nstaticData.geminiIndex = 0;\nstaticData.groqCounts = [0, 0, 0, 0];\nstaticData.geminiCounts = [0, 0, 0, 0];\nstaticData.aiCallsToday = 0;\n\n// Reset email counter (keep history)\nif (!staticData.emailsSent) staticData.emailsSent = {};\nstaticData.emailsSent[today] = { count: 0, jobIds: [] };\n\n// Clean old email history (keep 7 days)\nconst keys = Object.keys(staticData.emailsSent);\nconst weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];\nkeys.forEach(k => { if (k < weekAgo) delete staticData.emailsSent[k]; });\n\n// Keep discoveredJobs (rolling window) but clean >14 day old\nif (staticData.discoveredJobs) {\n  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];\n  staticData.discoveredJobs = staticData.discoveredJobs.filter(j => \n    !j.discoveredAt || j.discoveredAt >= cutoff\n  );\n}\n\n// Reset RapidAPI monthly counters on 1st of month\nconst dayOfMonth = new Date().getDate();\nif (dayOfMonth === 1) {\n  staticData.rapidApiIndex = 0;\n  staticData.findworkIndex = 0;\n  staticData.rapidApiCounts = [0, 0, 0, 0];\n  staticData.findworkCounts = [0, 0, 0, 0];\n}\n\nreturn [{ json: { \n  message: \"Daily reset complete\",\n  date: today,\n  discoveredJobsCount: (staticData.discoveredJobs || []).length\n}}];\n",
         "mode": "runOnceForAllItems"
       },
-      "id": "6ac1d4bd-c15a-4703-b448-09829fff6cef",
+      "id": "2dd38c70-1359-4faa-87e5-63e28c49f980",
       "name": "Daily Reset",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1075,18 +1072,18 @@
       "main": [
         [
           {
-            "node": "Prepare Telegram Summary",
+            "node": "Prepare Job Digest Email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Telegram Summary": {
+    "Prepare Job Digest Email": {
       "main": [
         [
           {
-            "node": "Send Telegram Digest",
+            "node": "Send Job Digest Email",
             "type": "main",
             "index": 0
           }
@@ -1130,7 +1127,7 @@
       "main": [
         [
           {
-            "node": "Limit Notification",
+            "node": "Limit Notification Email",
             "type": "main",
             "index": 0
           }
@@ -1181,7 +1178,7 @@
       "main": [
         [
           {
-            "node": "Send Outreach Telegram",
+            "node": "Send Outreach Summary Email",
             "type": "main",
             "index": 0
           }
