@@ -478,11 +478,11 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst stored = $input.first().json;\nconst allItems = $('AI Score Jobs').all();\nconst highPriority = allItems.filter(i => i.json.priority === 'HIGH' && i.json.score >= 60);\nconst totalScored = allItems.filter(i => !i.json.empty).length;\nconst passed = allItems.filter(i => i.json.score >= 60).length;\n\nlet msg = `\ud83d\udd0d *Job Discovery Report*\\n\\n`;\nmsg += `\ud83d\udcca Found: ${totalScored} jobs | Passed: ${passed} (score \u226560)\\n`;\nmsg += `\ud83d\udcbe Stored for outreach: ${stored.stored} | Queue: ${stored.totalInQueue}\\n\\n`;\n\nif (highPriority.length > 0) {\n  msg += `\u26a1 *HIGH PRIORITY (posted <2 days):*\\n`;\n  highPriority.slice(0, 5).forEach((item, i) => {\n    const j = item.json;\n    msg += `${i+1}. ${j.jobTitle} @ ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) msg += `   \u2192 ${j.applyUrl}\\n`;\n  });\n  if (highPriority.length > 5) msg += `   ...and ${highPriority.length - 5} more\\n`;\n}\n\nmsg += `\\n\u2705 Outreach will begin at 9:00 AM UTC`;\nreturn [{ json: { message: msg } }];\n",
+        "jsCode": "\nconst user = $('User Profile').first().json;\nconst stored = $input.first().json;\nconst allItems = $('AI Score Jobs').all();\nconst highPriority = allItems.filter(i => i.json.priority === 'HIGH' && i.json.score >= 60);\nconst totalScored = allItems.filter(i => !i.json.empty).length;\nconst passed = allItems.filter(i => i.json.score >= 60).length;\n\nlet body = `Hi ${user.name},\\n\\nHere is your daily job discovery digest:\\n\\n`;\nbody += `Found: ${totalScored} jobs | Passed: ${passed} (score \u226560)\\n`;\nbody += `Stored for outreach: ${stored.stored} | Queue: ${stored.totalInQueue}\\n\\n`;\n\nif (highPriority.length > 0) {\n  body += `\u26a1 HIGH PRIORITY (posted <2 days):\\n`;\n  highPriority.slice(0, 10).forEach((item, i) => {\n    const j = item.json;\n    body += `${i+1}. ${j.jobTitle} @ ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Apply: ${j.applyUrl}\\n`;\n  });\n  if (highPriority.length > 10) body += `   ...and ${highPriority.length - 10} more\\n`;\n}\n\nconst others = allItems.filter(i => i.json.priority !== 'HIGH' && i.json.score >= 60);\nif (others.length > 0) {\n  body += `\\nOther matches:\\n`;\n  others.slice(0, 5).forEach((item, i) => {\n    const j = item.json;\n    body += `${i+1}. ${j.jobTitle} @ ${j.company} (${j.score}/100)\\n`;\n  });\n  if (others.length > 5) body += `   ...and ${others.length - 5} more\\n`;\n}\n\nbody += `\\nOutreach will begin at 9:00 AM UTC.\\n\\n---\\nAI Jobs Assistant`;\n\nconst emailSubject = `Job Digest: ${passed} matches found (${highPriority.length} high priority)`;\nreturn [{ json: { emailBody: body, emailSubject, sendTo: user.email } }];\n",
         "mode": "runOnceForAllItems"
       },
       "id": "2200bf3b-6d96-4907-a13d-8dc6cb7eca9a",
-      "name": "Prepare Telegram Summary",
+      "name": "Prepare Job Digest Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -492,24 +492,23 @@
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "={{$json.message}}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$json.sendTo}}",
+        "subject": "={{$json.emailSubject}}",
+        "message": "={{$json.emailBody}}",
+        "options": {}
       },
       "id": "3a8bf1be-a50f-49ad-bc86-575da97d8cbf",
-      "name": "Send Telegram Digest",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "Send Job Digest Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         3300,
         -300
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CREDENTIAL",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
@@ -645,7 +644,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\nconst todayStats = staticData.emailsSent ? staticData.emailsSent[today] : { count: 0 };\nconst config = $('Backend Config').first().json;\n\nconst items = $input.all();\nconst sentCount = items.length;\n\nlet msg = `\ud83d\udce7 *Email Outreach Complete*\\n\\n`;\nmsg += `\u2705 Sent: ${sentCount} application emails\\n`;\nmsg += `\ud83d\udcca Total today: ${todayStats.count}/${config.userEmailDailyLimit}\\n\\n`;\n\nitems.slice(0, 5).forEach((item, i) => {\n  const j = item.json;\n  msg += `${i+1}. ${j.jobTitle} @ ${j.company}\\n`;\n  msg += `   \u2192 ${j.recruiterEmail}\\n`;\n});\n\nif (items.length > 5) msg += `   ...and ${items.length - 5} more\\n`;\nmsg += `\\n\ud83d\udca1 Each email is a direct application with resume context.`;\n\nreturn [{ json: { message: msg } }];\n",
+        "jsCode": "\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\nconst todayStats = staticData.emailsSent ? staticData.emailsSent[today] : { count: 0 };\nconst config = $('Backend Config').first().json;\nconst user = $('User Profile').first().json;\n\nconst items = $input.all();\nconst sentCount = items.length;\n\nlet body = `Hi ${user.name},\\n\\nEmail outreach complete for today:\\n\\n`;\nbody += `Sent: ${sentCount} application emails\\n`;\nbody += `Total today: ${todayStats.count}/${config.userEmailDailyLimit}\\n\\n`;\n\nbody += `Applications sent to:\\n`;\nitems.slice(0, 10).forEach((item, i) => {\n  const j = item.json;\n  body += `${i+1}. ${j.jobTitle} @ ${j.company} \u2192 ${j.recruiterEmail}\\n`;\n});\n\nif (items.length > 10) body += `   ...and ${items.length - 10} more\\n`;\nbody += `\\nEach email is a direct application with resume context.\\n\\n---\\nAI Jobs Assistant`;\n\nconst emailSubject = `Outreach Complete: ${sentCount} Applications Sent`;\nreturn [{ json: { emailBody: body, emailSubject, sendTo: user.email } }];\n",
         "mode": "runOnceForAllItems"
       },
       "id": "4b1da36a-87c1-4851-b72b-65f1d62940fc",
@@ -659,47 +658,45 @@
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "={{$json.message}}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$('User Profile').item.json.email}}",
+        "subject": "={{$json.emailSubject}}",
+        "message": "={{$json.emailBody}}",
+        "options": {}
       },
       "id": "ae9d430a-51b1-4fe9-9575-b47ecdb4cdbd",
-      "name": "Send Outreach Telegram",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "Send Outreach Summary Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         1980,
         800
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CREDENTIAL",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
     {
       "parameters": {
-        "chatId": "={{$('User Profile').item.json.telegramChatId}}",
-        "text": "=\u26a0\ufe0f *Daily Email Limit Reached*\n\nSent: {{$json.sent}}/{{$json.limit}} emails today.\nOutreach paused until tomorrow.\n\n\ud83d\udca1 Remaining jobs saved in queue for tomorrow.",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
+        "sendTo": "={{$('User Profile').item.json.email}}",
+        "subject": "=Daily Email Limit Reached",
+        "message": "=\u26a0\ufe0f Daily Email Limit Reached\n\nSent: {{$json.sent}}/{{$json.limit}} emails today.\nOutreach paused until tomorrow.\n\nRemaining jobs saved in queue for tomorrow.\n\n---\nAI Jobs Assistant",
+        "options": {}
       },
       "id": "22b4a632-55a6-4217-b193-f110bcbf7887",
-      "name": "Limit Notification",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "Limit Notification Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
       "position": [
         1100,
         400
       ],
       "credentials": {
-        "telegramApi": {
-          "id": "1",
-          "name": "Telegram Bot"
+        "gmailOAuth2": {
+          "id": "BOT_GMAIL_CREDENTIAL",
+          "name": "AI Jobs Assistant (Bot)"
         }
       }
     },
@@ -1211,18 +1208,18 @@
       "main": [
         [
           {
-            "node": "Prepare Telegram Summary",
+            "node": "Prepare Job Digest Email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Telegram Summary": {
+    "Prepare Job Digest Email": {
       "main": [
         [
           {
-            "node": "Send Telegram Digest",
+            "node": "Send Job Digest Email",
             "type": "main",
             "index": 0
           }
@@ -1266,7 +1263,7 @@
       "main": [
         [
           {
-            "node": "Limit Notification",
+            "node": "Limit Notification Email",
             "type": "main",
             "index": 0
           }
@@ -1317,7 +1314,7 @@
       "main": [
         [
           {
-            "node": "Send Outreach Telegram",
+            "node": "Send Outreach Summary Email",
             "type": "main",
             "index": 0
           }
