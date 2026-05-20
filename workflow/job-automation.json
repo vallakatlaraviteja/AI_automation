@@ -434,7 +434,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Categorize ALL jobs into tiers — nothing is hidden\n// Score 80-100: STRONG → email sent\n// Score 60-79:  GOOD → email sent\n// Score 40-59:  PARTIAL → shown in digest (user decides)\n// Score 20-39:  STRETCH → shown in digest (learning opportunity)\n// Score <20:    SKIP (truly irrelevant)\n\nconst items = $input.all();\nconst categorized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  const score = job.score || 0;\n  \n  if (score >= 80) {\n    job.tier = 'strong';\n    job.tierLabel = 'STRONG MATCH';\n    job.sendEmail = true;\n  } else if (score >= 60) {\n    job.tier = 'good';\n    job.tierLabel = 'GOOD MATCH';\n    job.sendEmail = true;\n  } else if (score >= 40) {\n    job.tier = 'partial';\n    job.tierLabel = 'PARTIAL MATCH';\n    job.sendEmail = false;\n  } else if (score >= 20) {\n    job.tier = 'stretch';\n    job.tierLabel = 'STRETCH';\n    job.sendEmail = false;\n  } else {\n    continue; // Skip truly irrelevant (<20)\n  }\n  \n  categorized.push({ json: job });\n}\n\nif (categorized.length === 0) {\n  return [{ json: { empty: true, message: 'No relevant jobs found' } }];\n}\n\nreturn categorized;",
+        "jsCode": "// Categorize ALL jobs into tiers \u2014 nothing is hidden\n// Score 80-100: STRONG \u2192 email sent\n// Score 60-79:  GOOD \u2192 email sent\n// Score 40-59:  PARTIAL \u2192 shown in digest (user decides)\n// Score 20-39:  STRETCH \u2192 shown in digest (learning opportunity)\n// Score <20:    SKIP (truly irrelevant)\n\nconst items = $input.all();\nconst categorized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  const score = job.score || 0;\n  \n  if (score >= 80) {\n    job.tier = 'strong';\n    job.tierLabel = 'STRONG MATCH';\n    job.sendEmail = true;\n  } else if (score >= 60) {\n    job.tier = 'good';\n    job.tierLabel = 'GOOD MATCH';\n    job.sendEmail = true;\n  } else if (score >= 40) {\n    job.tier = 'partial';\n    job.tierLabel = 'PARTIAL MATCH';\n    job.sendEmail = false;\n  } else if (score >= 20) {\n    job.tier = 'stretch';\n    job.tierLabel = 'STRETCH';\n    job.sendEmail = false;\n  } else {\n    continue; // Skip truly irrelevant (<20)\n  }\n  \n  categorized.push({ json: job });\n}\n\nif (categorized.length === 0) {\n  return [{ json: { empty: true, message: 'No relevant jobs found' } }];\n}\n\nreturn categorized;",
         "mode": "runOnceForAllItems"
       },
       "id": "71ca40c9-0c97-4511-a5a7-4e6ec15813d4",
@@ -462,7 +462,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Store jobs with sendEmail=true for the 9AM outreach trigger\n// Pass ALL data forward (jobs + skills gap) for the digest email\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst input = $input.first().json;\nconst allJobs = input.allJobs || [];\nconst today = new Date().toISOString().split('T')[0];\nlet storedCount = 0;\n\nfor (const job of allJobs) {\n  // Only store for email outreach if sendEmail is true (score ≥60) AND has email\n  if (job.sendEmail && job.recruiterEmail) {\n    job.discoveredAt = today;\n    job.emailed = false;\n    staticData.discoveredJobs.push(job);\n    storedCount++;\n  }\n}\n\n// Cap at 500\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\n// Pass everything forward for digest\nreturn [{ json: {\n  stored: storedCount,\n  totalInQueue: staticData.discoveredJobs.length,\n  allJobs: allJobs,\n  skillsGap: input.skillsGap || [],\n  userStrengths: input.userStrengths || [],\n  gapMessage: input.gapMessage || '',\n  strengthMessage: input.strengthMessage || '',\n  totalJobsAnalyzed: input.totalJobsAnalyzed || 0,\n  today\n} }];",
+        "jsCode": "// Store jobs with sendEmail=true for the 9AM outreach trigger\n// Pass ALL data forward (jobs + skills gap) for the digest email\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst input = $input.first().json;\nconst allJobs = input.allJobs || [];\nconst today = new Date().toISOString().split('T')[0];\nlet storedCount = 0;\n\nfor (const job of allJobs) {\n  // Only store for email outreach if sendEmail is true (score \u226560) AND has email\n  if (job.sendEmail && job.recruiterEmail) {\n    job.discoveredAt = today;\n    job.emailed = false;\n    staticData.discoveredJobs.push(job);\n    storedCount++;\n  }\n}\n\n// Cap at 500\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\n// Pass everything forward for digest\nreturn [{ json: {\n  stored: storedCount,\n  totalInQueue: staticData.discoveredJobs.length,\n  allJobs: allJobs,\n  skillsGap: input.skillsGap || [],\n  userStrengths: input.userStrengths || [],\n  gapMessage: input.gapMessage || '',\n  strengthMessage: input.strengthMessage || '',\n  totalJobsAnalyzed: input.totalJobsAnalyzed || 0,\n  today\n} }];",
         "mode": "runOnceForAllItems"
       },
       "id": "99b9012b-00e8-4a25-b3cd-8c9bae7f3fcb",
@@ -476,7 +476,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Build a comprehensive digest email showing ALL tiers + skills gap\nconst user = $('User Profile').first().json;\nconst input = $input.first().json;\nconst allJobs = input.allJobs || [];\nconst skillsGap = input.skillsGap || [];\nconst userStrengths = input.userStrengths || [];\n\n// Group by tier\nconst strong = allJobs.filter(j => j.tier === 'strong');\nconst good = allJobs.filter(j => j.tier === 'good');\nconst partial = allJobs.filter(j => j.tier === 'partial');\nconst stretch = allJobs.filter(j => j.tier === 'stretch');\nconst withEmail = allJobs.filter(j => j.sendEmail && j.recruiterEmail);\n\nlet body = `Hi ${user.name},\\n\\n`;\nbody += `Your daily job intelligence report is ready.\\n`;\nbody += `Analyzed ${allJobs.length} jobs from 8 sources.\\n\\n`;\n\n// STRONG MATCHES\nif (strong.length > 0) {\n  body += `═══════════════════════════════════════\\n`;\n  body += `⭐ STRONG MATCHES (${strong.length}) — Score 80-100\\n`;\n  body += `   Application emails will be sent at 9 AM\\n`;\n  body += `═══════════════════════════════════════\\n\\n`;\n  strong.forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    body += `   ${j.location} | ${j.workMode}\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    if (j.recruiterEmail) body += `   Email: ${j.recruiterEmail} → application will be sent\\n`;\n    body += `   Why: ${j.matchReason || 'Strong skill match'}\\n\\n`;\n  });\n}\n\n// GOOD MATCHES\nif (good.length > 0) {\n  body += `═══════════════════════════════════════\\n`;\n  body += `✅ GOOD MATCHES (${good.length}) — Score 60-79\\n`;\n  body += `   Application emails will be sent at 9 AM\\n`;\n  body += `═══════════════════════════════════════\\n\\n`;\n  good.forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    body += `   ${j.location} | ${j.workMode}\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    if (j.recruiterEmail) body += `   Email: ${j.recruiterEmail} → application will be sent\\n`;\n    body += `\\n`;\n  });\n}\n\n// PARTIAL MATCHES\nif (partial.length > 0) {\n  body += `═══════════════════════════════════════\\n`;\n  body += `📋 PARTIAL MATCHES (${partial.length}) — Score 40-59\\n`;\n  body += `   You're close! Consider tailoring your resume.\\n`;\n  body += `═══════════════════════════════════════\\n\\n`;\n  partial.slice(0, 10).forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    body += `   Why partial: ${j.matchReason || 'Some skills match, some missing'}\\n\\n`;\n  });\n  if (partial.length > 10) body += `   ...and ${partial.length - 10} more partial matches\\n\\n`;\n}\n\n// STRETCH\nif (stretch.length > 0) {\n  body += `═══════════════════════════════════════\\n`;\n  body += `📚 STRETCH / LEARNING (${stretch.length}) — Score 20-39\\n`;\n  body += `   These need skills you're building. Great for learning goals.\\n`;\n  body += `═══════════════════════════════════════\\n\\n`;\n  stretch.slice(0, 5).forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n  });\n  if (stretch.length > 5) body += `   ...and ${stretch.length - 5} more\\n\\n`;\n}\n\n// SKILLS GAP\nif (skillsGap.length > 0) {\n  body += `═══════════════════════════════════════\\n`;\n  body += `📊 SKILLS IN DEMAND (you don't have yet)\\n`;\n  body += `   Learn these to increase your matches:\\n`;\n  body += `═══════════════════════════════════════\\n\\n`;\n  skillsGap.forEach((g, i) => {\n    body += `   ${i+1}. ${g.skill} — found in ${g.count} job descriptions\\n`;\n  });\n  body += `\\n`;\n}\n\n// USER STRENGTHS\nif (userStrengths.length > 0) {\n  body += `💪 YOUR STRENGTHS (skills companies want that you HAVE):\\n`;\n  userStrengths.forEach(s => {\n    body += `   ✓ ${s.skill} — matches ${s.count} jobs\\n`;\n  });\n  body += `\\n`;\n}\n\n// SUMMARY\nbody += `═══════════════════════════════════════\\n`;\nbody += `📈 TODAY'S SUMMARY\\n`;\nbody += `═══════════════════════════════════════\\n`;\nbody += `• ${strong.length + good.length} jobs will get application emails (score ≥60)\\n`;\nbody += `• ${partial.length} partial matches (consider tailoring resume)\\n`;\nbody += `• ${stretch.length} stretch goals (learning opportunities)\\n`;\nbody += `• ${withEmail.length} jobs have recruiter emails\\n`;\nbody += `\\nEmails go out at 9:00 AM. Follow-ups at 10:00 AM (day 3-5).\\n`;\nbody += `\\n---\\nAI Jobs Assistant`;\n\nconst emailSubject = `Job Report: ${strong.length} Strong + ${good.length} Good + ${partial.length} Partial Matches`;\n\nreturn [{ json: { emailBody: body, emailSubject, sendTo: user.email } }];",
+        "jsCode": "// Build a comprehensive digest email showing ALL tiers + skills gap\nconst user = $('User Profile').first().json;\nconst input = $input.first().json;\nconst allJobs = input.allJobs || [];\nconst skillsGap = input.skillsGap || [];\nconst userStrengths = input.userStrengths || [];\n\n// Group by tier\nconst strong = allJobs.filter(j => j.tier === 'strong');\nconst good = allJobs.filter(j => j.tier === 'good');\nconst partial = allJobs.filter(j => j.tier === 'partial');\nconst stretch = allJobs.filter(j => j.tier === 'stretch');\nconst withEmail = allJobs.filter(j => j.sendEmail && j.recruiterEmail);\n\nlet body = `Hi ${user.name},\\n\\n`;\nbody += `Your daily job intelligence report is ready.\\n`;\nbody += `Analyzed ${allJobs.length} jobs from 8 sources.\\n\\n`;\n\n// STRONG MATCHES\nif (strong.length > 0) {\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\n  body += `\u2b50 STRONG MATCHES (${strong.length}) \u2014 Score 80-100\\n`;\n  body += `   Application emails will be sent at 9 AM\\n`;\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n\\n`;\n  strong.forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    body += `   ${j.location} | ${j.workMode}\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    if (j.recruiterEmail) body += `   Email: ${j.recruiterEmail} \u2192 application will be sent\\n`;\n    body += `   Why: ${j.matchReason || 'Strong skill match'}\\n\\n`;\n  });\n}\n\n// GOOD MATCHES\nif (good.length > 0) {\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\n  body += `\u2705 GOOD MATCHES (${good.length}) \u2014 Score 60-79\\n`;\n  body += `   Application emails will be sent at 9 AM\\n`;\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n\\n`;\n  good.forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    body += `   ${j.location} | ${j.workMode}\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    if (j.recruiterEmail) body += `   Email: ${j.recruiterEmail} \u2192 application will be sent\\n`;\n    body += `\\n`;\n  });\n}\n\n// PARTIAL MATCHES\nif (partial.length > 0) {\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\n  body += `\ud83d\udccb PARTIAL MATCHES (${partial.length}) \u2014 Score 40-59\\n`;\n  body += `   You're close! Consider tailoring your resume.\\n`;\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n\\n`;\n  partial.slice(0, 10).forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n    body += `   Why partial: ${j.matchReason || 'Some skills match, some missing'}\\n\\n`;\n  });\n  if (partial.length > 10) body += `   ...and ${partial.length - 10} more partial matches\\n\\n`;\n}\n\n// STRETCH\nif (stretch.length > 0) {\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\n  body += `\ud83d\udcda STRETCH / LEARNING (${stretch.length}) \u2014 Score 20-39\\n`;\n  body += `   These need skills you're building. Great for learning goals.\\n`;\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n\\n`;\n  stretch.slice(0, 5).forEach((j, i) => {\n    body += `${i+1}. ${j.jobTitle} at ${j.company} (${j.score}/100)\\n`;\n    if (j.applyUrl) body += `   Portal: ${j.applyUrl}\\n`;\n  });\n  if (stretch.length > 5) body += `   ...and ${stretch.length - 5} more\\n\\n`;\n}\n\n// SKILLS GAP\nif (skillsGap.length > 0) {\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\n  body += `\ud83d\udcca SKILLS IN DEMAND (you don't have yet)\\n`;\n  body += `   Learn these to increase your matches:\\n`;\n  body += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n\\n`;\n  skillsGap.forEach((g, i) => {\n    body += `   ${i+1}. ${g.skill} \u2014 found in ${g.count} job descriptions\\n`;\n  });\n  body += `\\n`;\n}\n\n// USER STRENGTHS\nif (userStrengths.length > 0) {\n  body += `\ud83d\udcaa YOUR STRENGTHS (skills companies want that you HAVE):\\n`;\n  userStrengths.forEach(s => {\n    body += `   \u2713 ${s.skill} \u2014 matches ${s.count} jobs\\n`;\n  });\n  body += `\\n`;\n}\n\n// SUMMARY\nbody += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\nbody += `\ud83d\udcc8 TODAY'S SUMMARY\\n`;\nbody += `\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\\n`;\nbody += `\u2022 ${strong.length + good.length} jobs will get application emails (score \u226560)\\n`;\nbody += `\u2022 ${partial.length} partial matches (consider tailoring resume)\\n`;\nbody += `\u2022 ${stretch.length} stretch goals (learning opportunities)\\n`;\nbody += `\u2022 ${withEmail.length} jobs have recruiter emails\\n`;\nbody += `\\nEmails go out at 9:00 AM. Follow-ups at 10:00 AM (day 3-5).\\n`;\nbody += `\\n---\\nAI Jobs Assistant`;\n\nconst emailSubject = `Job Report: ${strong.length} Strong + ${good.length} Good + ${partial.length} Partial Matches`;\n\nreturn [{ json: { emailBody: body, emailSubject, sendTo: user.email } }];",
         "mode": "runOnceForAllItems"
       },
       "id": "2200bf3b-6d96-4907-a13d-8dc6cb7eca9a",
@@ -680,7 +680,7 @@
       "parameters": {
         "sendTo": "your.email@gmail.com",
         "subject": "=Daily Email Limit Reached",
-        "message": "=⚠️ Daily Email Limit Reached\n\nSent: {{$json.sent}}/{{$json.limit}} emails today.\nOutreach paused until tomorrow.\n\nRemaining jobs saved in queue for tomorrow.\n\n---\nAI Jobs Assistant",
+        "message": "=\u26a0\ufe0f Daily Email Limit Reached\n\nSent: {{$json.sent}}/{{$json.limit}} emails today.\nOutreach paused until tomorrow.\n\nRemaining jobs saved in queue for tomorrow.\n\n---\nAI Jobs Assistant",
         "options": {}
       },
       "id": "22b4a632-55a6-4217-b193-f110bcbf7887",
@@ -867,6 +867,72 @@
           "name": "AI Jobs Assistant (Bot)"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get companies with emails where user partially matches (score 30-59)\n// These get an impressive open application \u2014 not a direct job application\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\n\nif (!staticData.discoveredJobs || staticData.discoveredJobs.length === 0) {\n  return [{ json: { empty: true } }];\n}\n\n// Check email limit\nif (!staticData.emailsSent) staticData.emailsSent = {};\nif (!staticData.emailsSent[today]) staticData.emailsSent[today] = { count: 0, jobIds: [] };\nconst remaining = 50 - staticData.emailsSent[today].count;\nif (remaining <= 0) return [{ json: { empty: true, message: 'Daily limit reached' } }];\n\n// Find partial matches with emails that haven't been contacted\nconst candidates = staticData.discoveredJobs.filter(job => {\n  if (!job.recruiterEmail) return false;\n  if (job.emailed) return false;\n  if (job.speculativeSent) return false;\n  const score = job.score || 0;\n  return score >= 30 && score < 60; // Partial matches only\n});\n\nif (candidates.length === 0) {\n  return [{ json: { empty: true, message: 'No speculative candidates' } }];\n}\n\n// Max 5 speculative emails per day\nconst toSend = candidates.slice(0, Math.min(5, remaining));\nreturn toSend.map(j => ({ json: { ...j, isSpeculative: true } }));",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "6bdfd7d2-5d8f-4226-b341-5cc407229523",
+      "name": "Get Speculative Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate an IMPRESSIVE speculative/open application email\n// Tone: Confident, specific to the company, shows value\n// NOT: \"Dear Hiring Manager, I am writing to express my interest...\"\nconst staticData = this.getWorkflowStaticData('global');\nconst rotation = $('AI Key Rotation Manager').first().json;\nconst user = $('User Profile').first().json;\nconst resume = $('Parse Resume with AI').first().json;\nconst job = $input.item.json;\n\nif (!job.recruiterEmail || job.empty) return [{ json: { skip: true } }];\n\nlet subject = `${user.currentRole} \u2014 Open to Opportunities at ${job.company}`;\nlet body = '';\n\nif (rotation.aiProvider !== 'exhausted') {\n  const prompt = `Write an IMPRESSIVE speculative application email (150-180 words).\n\nCONTEXT: The candidate is reaching out to a company that has job postings in their field, but isn't a perfect match for a specific role. This is an open application showing what they bring.\n\nCOMPANY: ${job.company}\nCOMPANY'S JOB: ${job.jobTitle} (${job.location})\nCOMPANY DESCRIPTION: ${(job.description || '').substring(0, 300)}\n\nCANDIDATE: ${user.name}, ${user.currentRole}, ${user.experience}\nKEY SKILLS: ${(user.skills || []).join(', ')}\nTOP PROJECT: ${(resume.projects || []).slice(0, 1).map(p => (p.name || '') + ' - ' + (p.description || '')).join('')}\nLINKEDIN: ${user.linkedinUrl}\nPORTFOLIO: ${user.portfolioUrl}\n\nRULES:\n- Subject line: Something memorable, NOT \"Open Application\" (boring)\n- Open with something specific about THAT company (show you researched them)\n- Show what you BRING (value-first, not \"I want\" language)\n- Mention your strongest project/achievement briefly\n- Say you'd love to be considered for current or future roles\n- End confidently: \"Happy to connect\" not \"I hope to hear from you\"\n- Sign off with name + links\n- Make it sound like a real human wrote it, not a bot\n- Be enthusiastic and confident, NOT desperate\n\nFORMAT:\nSubject: [eye-catching subject]\n\n[email body]`;\n\n  try {\n    let content = '';\n    if (rotation.aiProvider === 'groq') {\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: rotation.aiUrl,\n        headers: { 'Authorization': 'Bearer ' + rotation.aiKey, 'Content-Type': 'application/json' },\n        body: { model: rotation.aiModel, messages: [{ role: 'user', content: prompt }], temperature: 0.8, max_tokens: 500 }\n      });\n      content = resp.choices[0].message.content;\n      staticData.groqCounts[staticData.groqIndex]++;\n    } else {\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: rotation.aiUrl + '?key=' + rotation.aiKey,\n        headers: { 'Content-Type': 'application/json' },\n        body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 500 } }\n      });\n      content = resp.candidates[0].content.parts[0].text;\n      staticData.geminiCounts[staticData.geminiIndex]++;\n    }\n    staticData.aiCallsToday++;\n\n    const subjectMatch = content.match(/Subject:\\s*(.+)/i);\n    if (subjectMatch) {\n      subject = subjectMatch[1].trim();\n      body = content.replace(/Subject:.+\\n?\\n?/i, '').trim();\n    } else {\n      body = content.trim();\n    }\n  } catch (e) {\n    body = `Hi ${job.company} Team,\\n\\nI'm ${user.name}, a ${user.currentRole} with ${user.experience} of experience in ${(user.skills || []).slice(0, 3).join(', ')}.\\n\\nI've been following ${job.company}'s work and believe my background could add value to your team. I'd love to be considered for any relevant current or future opportunities.\\n\\nResume attached. Happy to connect anytime.\\n\\nBest regards,\\n${user.name}\\n${user.linkedinUrl}\\n${user.portfolioUrl}`;\n  }\n} else {\n  body = `Hi ${job.company} Team,\\n\\nI'm ${user.name}, a ${user.currentRole} with ${user.experience} of experience in ${(user.skills || []).slice(0, 3).join(', ')}.\\n\\nI've been following ${job.company}'s work and believe my background could add value to your team. I'd love to be considered for any relevant current or future opportunities.\\n\\nResume attached. Happy to connect anytime.\\n\\nBest regards,\\n${user.name}\\n${user.linkedinUrl}\\n${user.portfolioUrl}`;\n}\n\nreturn [{ json: {\n  ...job,\n  emailSubject: subject,\n  emailBody: body,\n  sendTo: job.recruiterEmail,\n  ccEmail: user.email,\n  isSpeculative: true\n} }];",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "5fcb5580-c55c-4c78-9a04-88f2c97f8c60",
+      "name": "AI: Generate Speculative Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.sendTo}}",
+        "subject": "={{$json.emailSubject}}",
+        "message": "={{$json.emailBody}}",
+        "options": {
+          "ccList": "={{$json.ccEmail}}"
+        }
+      },
+      "id": "36e4b6fd-a4f8-4a6f-b9b0-c219826b8301",
+      "name": "Send Speculative Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        1000
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "User Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark job as speculative-sent, never send again\nconst staticData = this.getWorkflowStaticData('global');\nconst today = new Date().toISOString().split('T')[0];\nconst job = $input.item.json;\n\nif (!staticData.emailsSent) staticData.emailsSent = {};\nif (!staticData.emailsSent[today]) staticData.emailsSent[today] = { count: 0, jobIds: [] };\nstaticData.emailsSent[today].count++;\n\n// Mark in discovered jobs\nif (staticData.discoveredJobs) {\n  const idx = staticData.discoveredJobs.findIndex(j => j.jobId === job.jobId);\n  if (idx >= 0) {\n    staticData.discoveredJobs[idx].speculativeSent = true;\n    staticData.discoveredJobs[idx].speculativeSentAt = new Date().toISOString();\n  }\n}\n\nreturn [{ json: { ...job, speculativeSent: true } }];",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "1b3fdfe7-a368-4df5-a51b-35802630f228",
+      "name": "Mark Speculative Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        1000
+      ]
     }
   ],
   "connections": {
@@ -1231,6 +1297,11 @@
             "node": "Get Jobs for Outreach",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Get Speculative Candidates",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1412,6 +1483,39 @@
         [
           {
             "node": "Store Jobs for Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Speculative Candidates": {
+      "main": [
+        [
+          {
+            "node": "AI: Generate Speculative Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Generate Speculative Email": {
+      "main": [
+        [
+          {
+            "node": "Send Speculative Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Speculative Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Speculative Sent",
             "type": "main",
             "index": 0
           }
