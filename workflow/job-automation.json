@@ -1,5 +1,5 @@
 {
-  "name": "AI Job Automation",
+  "name": "AI Job Automation (Discovery + Outreach)",
   "nodes": [
     {
       "parameters": {
@@ -341,6 +341,196 @@
           "name": "Telegram Bot"
         }
       }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "f8cc3be9-91b9-4c2b-a00c-23938868775b",
+      "name": "Schedule: Email Outreach (9 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=this.getWorkflowStaticData('global');const today=new Date().toISOString().split('T')[0];if(!s.emailsSent)s.emailsSent={};if(!s.emailsSent[today])s.emailsSent[today]={count:0,jobs:[]};const stored=s.discoveredJobs||[];const ready=stored.filter(j=>j.recruiterEmail&&!s.emailsSent[today].jobs.includes(j.jobId));if(!ready.length)return[{json:{noJobs:true,message:'No jobs ready for outreach'}}];return ready.map(j=>({json:j}));"
+      },
+      "id": "86e65e30-4068-4710-9199-68502f51a8b2",
+      "name": "Get Jobs for Outreach",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=this.getWorkflowStaticData('global');const config=$('Backend Config').item.json;const today=new Date().toISOString().split('T')[0];if(!s.emailsSent)s.emailsSent={};if(!s.emailsSent[today])s.emailsSent[today]={count:0,jobs:[]};const sent=s.emailsSent[today].count;const limit=config.userEmailDailyLimit||50;const remaining=limit-sent;if(remaining<=0)return[{json:{limitReached:true,message:'Daily limit ('+sent+'/'+limit+'). Tomorrow.'}}];const jobs=items.filter(i=>!i.json.noJobs).slice(0,remaining);if(!jobs.length)return[{json:{limitReached:true,message:'No jobs to email'}}];return jobs.map(i=>({json:{...i.json,limitReached:false}}));"
+      },
+      "id": "2b71e5ad-eb7b-4d34-bb35-a53857d829ed",
+      "name": "Check Email Limit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.limitReached }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "f2780ed0-9874-49c7-95f3-1f91ed5aaa2e",
+      "name": "Limit Reached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        760,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const ai=$('AI Key Rotation Manager').item.json;const user=$('User Profile').item.json;const resume=$('Parse Resume with AI').item.json;const job=items[0].json;if(ai.aiExhausted){return[{json:{...job,emailSubject:`Application for ${job.jobTitle} at ${job.company}`,emailBody:`Hi ${job.recruiterName||'Hiring Team'},\\n\\nI'm ${user.name}, applying for ${job.jobTitle} at ${job.company}. With ${user.experience} in ${(user.skills||[]).slice(0,3).join(', ')}, I'm a strong fit. Resume attached.\\n\\nBest regards,\\n${user.name}\\n${user.linkedinUrl||''}`}}];}const prompt=`Write a direct job application email (NOT a follow-up). 150-200 words.\\nJOB: ${job.jobTitle} at ${job.company}\\nRecipient: ${job.recruiterName||'Hiring Team'}\\nDescription: ${(job.description||'').substring(0,500)}\\nCANDIDATE: ${user.name}, ${user.currentRole}, ${user.experience}\\nSkills: ${(user.skills||[]).join(', ')}\\nProjects: ${((resume.resumeData||{}).projects||[]).slice(0,2).map(p=>p.name).join(', ')}\\nRULES: Open with I'm [Name] applying for [Role]. Reference ONE JD requirement. Mention ONE project. Say resume attached. End Best regards. NOT generic.\\nFORMAT:\\nSubject: [subject]\\n\\n[body]`;try{let text;const sd=this.getWorkflowStaticData('global');if(ai.aiProvider==='groq'){const r=await this.helpers.httpRequest({method:'POST',url:ai.aiUrl,headers:{'Authorization':'Bearer '+ai.aiKey,'Content-Type':'application/json'},body:JSON.stringify({model:ai.aiModel,messages:[{role:'user',content:prompt}],temperature:0.7}),json:true,timeout:30000});text=r.choices[0].message.content;sd.aiState.groq.counts[sd.aiState.groq.currentIndex]++;}else{const r=await this.helpers.httpRequest({method:'POST',url:ai.aiUrl+'?key='+ai.aiKey,headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]}),json:true,timeout:30000});text=r.candidates[0].content.parts[0].text;sd.aiState.gemini.counts[sd.aiState.gemini.currentIndex]++;}let subject=`Application for ${job.jobTitle}`;let body=text;const m=text.match(/Subject:\\s*(.+?)\\n/i);if(m){subject=m[1].trim();body=text.replace(/Subject:\\s*.+?\\n/i,'').trim();}body+=`\\n\\n${user.linkedinUrl?'LinkedIn: '+user.linkedinUrl:''}${user.portfolioUrl?'\\nPortfolio: '+user.portfolioUrl:''}`;return[{json:{...job,emailSubject:subject,emailBody:body}}];}catch(e){return[{json:{...job,emailSubject:`Application for ${job.jobTitle}`,emailBody:`Hi,\\nI'm ${user.name}, applying for ${job.jobTitle}. Resume attached.\\nBest regards,\\n${user.name}`}}];}"
+      },
+      "id": "49dd0c3a-7a6a-4a4e-9a72-bf6c840ca12e",
+      "name": "AI: Generate Application Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recruiterEmail }}",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailBody }}",
+        "options": {
+          "ccList": "={{ $('User Profile').item.json.email }}"
+        }
+      },
+      "id": "3c0463a4-0b1d-4531-a35c-edacd5091443",
+      "name": "Send Application Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        900
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "USER_GMAIL_CRED",
+          "name": "User Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const s=this.getWorkflowStaticData('global');const today=new Date().toISOString().split('T')[0];if(!s.emailsSent)s.emailsSent={};if(!s.emailsSent[today])s.emailsSent[today]={count:0,jobs:[]};s.emailsSent[today].count++;s.emailsSent[today].jobs.push(items[0].json.jobId);return[{json:{...items[0].json,status:'Applied',emailSentAt:new Date().toISOString()}}];"
+      },
+      "id": "418707b2-a366-433c-8a4d-dfee61aa1749",
+      "name": "Track Email Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const user=$('User Profile').item.json;const sent=items.filter(i=>i.json.status==='Applied');const s=this.getWorkflowStaticData('global');const today=new Date().toISOString().split('T')[0];const total=(s.emailsSent||{})[today]?.count||0;let msg=`Outreach Done: ${sent.length} applications. Total: ${total}/50\\n`;sent.slice(0,10).forEach((j,i)=>{msg+=`${i+1}. ${j.json.jobTitle} at ${j.json.company}\\n`;});return[{json:{message:msg,chatId:user.telegramChatId}}];"
+      },
+      "id": "8c5b38d8-1be8-4283-8841-eb04abc2f64a",
+      "name": "Outreach Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "6e346b3b-458b-4586-8b9b-eb8444de3a12",
+      "name": "Send Outreach Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1860,
+        900
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CRED",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('User Profile').item.json.telegramChatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "e8a1a9b6-eebd-4242-9a4f-d125d7be9f2f",
+      "name": "Limit Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        980,
+        700
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CRED",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s=this.getWorkflowStaticData('global');if(!s.discoveredJobs)s.discoveredJobs=[];const ids=new Set(s.discoveredJobs.map(j=>j.jobId));for(const i of items){if(i.json.jobId&&!ids.has(i.json.jobId))s.discoveredJobs.push(i.json);}if(s.discoveredJobs.length>500)s.discoveredJobs=s.discoveredJobs.slice(-500);return items;"
+      },
+      "id": "60ef696a-52f0-4c32-bbea-6158ff7bc681",
+      "name": "Store Jobs for Outreach",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        400
+      ]
     }
   ],
   "connections": {
@@ -365,6 +555,11 @@
           },
           {
             "node": "User Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Jobs for Outreach",
             "type": "main",
             "index": 0
           }
@@ -585,6 +780,11 @@
             "node": "Prepare Summary",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Store Jobs for Outreach",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -594,6 +794,101 @@
         [
           {
             "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Email Outreach (9 AM)": {
+      "main": [
+        [
+          {
+            "node": "Backend Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Jobs for Outreach": {
+      "main": [
+        [
+          {
+            "node": "Check Email Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Email Limit": {
+      "main": [
+        [
+          {
+            "node": "Limit Reached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit Reached?": {
+      "main": [
+        [
+          {
+            "node": "Limit Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI: Generate Application Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Generate Application Email": {
+      "main": [
+        [
+          {
+            "node": "Send Application Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Application Email": {
+      "main": [
+        [
+          {
+            "node": "Track Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Email Sent": {
+      "main": [
+        [
+          {
+            "node": "Outreach Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outreach Summary": {
+      "main": [
+        [
+          {
+            "node": "Send Outreach Telegram",
             "type": "main",
             "index": 0
           }
