@@ -434,7 +434,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Categorize ALL jobs into tiers — nothing is hidden\n// Score 80-100: STRONG → email sent\n// Score 60-79:  GOOD → email sent\n// Score 40-59:  PARTIAL → shown in digest (user decides)\n// Score 20-39:  STRETCH → shown in digest (learning opportunity)\n// Score <20:    SKIP (truly irrelevant)\n\nconst items = $input.all();\nconst categorized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  const score = job.score || 0;\n  \n  if (score >= 80) {\n    job.tier = 'strong';\n    job.tierLabel = 'STRONG MATCH';\n    job.sendEmail = true;\n  } else if (score >= 60) {\n    job.tier = 'good';\n    job.tierLabel = 'GOOD MATCH';\n    job.sendEmail = true;\n  } else if (score >= 40) {\n    job.tier = 'partial';\n    job.tierLabel = 'PARTIAL MATCH';\n    job.sendEmail = false;\n  } else if (score >= 20) {\n    job.tier = 'stretch';\n    job.tierLabel = 'STRETCH';\n    job.sendEmail = false;\n  } else {\n    continue; // Skip truly irrelevant (<20)\n  }\n  \n  categorized.push({ json: job });\n}\n\nif (categorized.length === 0) {\n  return [{ json: { empty: true, message: 'No relevant jobs found' } }];\n}\n\nreturn categorized;",
+        "jsCode": "// Categorize ALL jobs into tiers \u2014 nothing is hidden\n// Score 80-100: STRONG \u2192 email sent\n// Score 60-79:  GOOD \u2192 email sent\n// Score 40-59:  PARTIAL \u2192 shown in digest (user decides)\n// Score 20-39:  STRETCH \u2192 shown in digest (learning opportunity)\n// Score <20:    SKIP (truly irrelevant)\n\nconst items = $input.all();\nconst categorized = [];\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  const score = job.score || 0;\n  \n  if (score >= 80) {\n    job.tier = 'strong';\n    job.tierLabel = 'STRONG MATCH';\n    job.sendEmail = true;\n  } else if (score >= 60) {\n    job.tier = 'good';\n    job.tierLabel = 'GOOD MATCH';\n    job.sendEmail = true;\n  } else if (score >= 40) {\n    job.tier = 'partial';\n    job.tierLabel = 'PARTIAL MATCH';\n    job.sendEmail = false;\n  } else if (score >= 20) {\n    job.tier = 'stretch';\n    job.tierLabel = 'STRETCH';\n    job.sendEmail = false;\n  } else {\n    continue; // Skip truly irrelevant (<20)\n  }\n  \n  categorized.push({ json: job });\n}\n\nif (categorized.length === 0) {\n  return [{ json: { empty: true, message: 'No relevant jobs found' } }];\n}\n\nreturn categorized;",
         "mode": "runOnceForAllItems"
       },
       "id": "71ca40c9-0c97-4511-a5a7-4e6ec15813d4",
@@ -448,7 +448,21 @@
     },
     {
       "parameters": {
-        "jsCode": "// Store jobs with sendEmail=true for the 9AM outreach trigger\n// But pass ALL jobs forward (for the digest email that shows all tiers)\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst items = $input.all();\nconst today = new Date().toISOString().split('T')[0];\nlet storedCount = 0;\n\nfor (const item of items) {\n  const job = item.json;\n  if (job.empty) continue;\n  \n  // Only store for email outreach if sendEmail is true (score ≥60)\n  if (job.sendEmail && job.recruiterEmail) {\n    job.discoveredAt = today;\n    job.emailed = false;\n    staticData.discoveredJobs.push(job);\n    storedCount++;\n  }\n}\n\n// Cap at 500\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\n// Pass ALL items forward (for the digest that shows all tiers)\nreturn [{ json: { \n  stored: storedCount,\n  totalInQueue: staticData.discoveredJobs.length,\n  allJobs: items.map(i => i.json).filter(j => !j.empty),\n  today\n} }];",
+        "jsCode": "// Skills Gap Analysis: Find in-demand skills the user DOESN'T have\n// Scans ALL job descriptions, counts skill mentions, compares with user's resume\nconst userProfile = $('User Profile').first().json;\nconst resume = $('Parse Resume with AI').first().json;\n\n// Combine user's known skills (from profile + resume)\nconst userSkills = new Set([\n  ...(userProfile.skills || []).map(s => s.toLowerCase()),\n  ...(resume.skills || []).map(s => s.toLowerCase())\n]);\n\n// Common tech skills to look for in job descriptions\nconst techSkills = [\n  'python', 'javascript', 'typescript', 'react', 'angular', 'vue',\n  'node.js', 'nodejs', 'java', 'go', 'golang', 'rust', 'c++',\n  'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes',\n  'terraform', 'jenkins', 'ci/cd', 'git', 'linux',\n  'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch',\n  'graphql', 'rest api', 'microservices', 'kafka', 'rabbitmq',\n  'machine learning', 'deep learning', 'pytorch', 'tensorflow',\n  'data science', 'pandas', 'numpy', 'sql', 'nosql',\n  'react native', 'flutter', 'swift', 'kotlin',\n  'figma', 'agile', 'scrum', 'jira', 'devops', 'sre',\n  'next.js', 'nextjs', 'tailwind', 'sass', 'webpack',\n  'spring boot', 'django', 'flask', 'fastapi', 'express',\n  'solidity', 'blockchain', 'web3'\n];\n\n// Count how many jobs mention each skill\nconst skillCounts = {};\nconst items = $input.all();\n\nfor (const item of items) {\n  const desc = (item.json.description || '').toLowerCase();\n  for (const skill of techSkills) {\n    if (desc.includes(skill)) {\n      if (!skillCounts[skill]) skillCounts[skill] = 0;\n      skillCounts[skill]++;\n    }\n  }\n}\n\n// Find skills user DOESN'T have that are in demand\nconst gap = [];\nfor (const [skill, count] of Object.entries(skillCounts)) {\n  if (!userSkills.has(skill) && count >= 2) {\n    gap.push({ skill, count });\n  }\n}\n\n// Sort by most demanded\ngap.sort((a, b) => b.count - a.count);\nconst topGap = gap.slice(0, 10);\n\n// Also find skills user HAS that are in demand (validation)\nconst strengths = [];\nfor (const [skill, count] of Object.entries(skillCounts)) {\n  if (userSkills.has(skill)) {\n    strengths.push({ skill, count });\n  }\n}\nstrengths.sort((a, b) => b.count - a.count);\n\n// Pass everything forward (all jobs + gap analysis)\nconst allJobs = items.map(i => i.json).filter(j => !j.empty);\n\nreturn [{ json: {\n  allJobs,\n  skillsGap: topGap,\n  userStrengths: strengths.slice(0, 5),\n  totalJobsAnalyzed: allJobs.length,\n  gapMessage: topGap.length > 0 \n    ? `Skills in demand you don't have yet: ${topGap.slice(0, 5).map(g => g.skill + ' (' + g.count + ' jobs)').join(', ')}`\n    : 'Your skills match market demand well!',\n  strengthMessage: strengths.length > 0\n    ? `Your strongest matches: ${strengths.slice(0, 3).map(s => s.skill + ' (' + s.count + ' jobs)').join(', ')}`\n    : ''\n} }];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "a1fdcb70-c6b1-4352-a428-37c078fee5c1",
+      "name": "Skills Gap Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2750,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store jobs with sendEmail=true for the 9AM outreach trigger\n// Pass ALL data forward (jobs + skills gap) for the digest email\nconst staticData = this.getWorkflowStaticData('global');\nif (!staticData.discoveredJobs) staticData.discoveredJobs = [];\n\nconst input = $input.first().json;\nconst allJobs = input.allJobs || [];\nconst today = new Date().toISOString().split('T')[0];\nlet storedCount = 0;\n\nfor (const job of allJobs) {\n  // Only store for email outreach if sendEmail is true (score \u226560) AND has email\n  if (job.sendEmail && job.recruiterEmail) {\n    job.discoveredAt = today;\n    job.emailed = false;\n    staticData.discoveredJobs.push(job);\n    storedCount++;\n  }\n}\n\n// Cap at 500\nif (staticData.discoveredJobs.length > 500) {\n  staticData.discoveredJobs = staticData.discoveredJobs.slice(-500);\n}\n\n// Pass everything forward for digest\nreturn [{ json: {\n  stored: storedCount,\n  totalInQueue: staticData.discoveredJobs.length,\n  allJobs: allJobs,\n  skillsGap: input.skillsGap || [],\n  userStrengths: input.userStrengths || [],\n  gapMessage: input.gapMessage || '',\n  strengthMessage: input.strengthMessage || '',\n  totalJobsAnalyzed: input.totalJobsAnalyzed || 0,\n  today\n} }];",
         "mode": "runOnceForAllItems"
       },
       "id": "99b9012b-00e8-4a25-b3cd-8c9bae7f3fcb",
@@ -1181,7 +1195,7 @@
       "main": [
         [
           {
-            "node": "Store Jobs for Outreach",
+            "node": "Skills Gap Analysis",
             "type": "main",
             "index": 0
           }
@@ -1387,6 +1401,17 @@
         [
           {
             "node": "Send Follow-up Summary Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skills Gap Analysis": {
+      "main": [
+        [
+          {
+            "node": "Store Jobs for Outreach",
             "type": "main",
             "index": 0
           }
